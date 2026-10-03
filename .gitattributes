@@ -1,0 +1,7 @@
+# Ignore platform folders in GitHub language stats
+android/** linguist-generated=true
+ios/** linguist-generated=true
+linux/** linguist-generated=true
+macos/** linguist-generated=true
+windows/** linguist-generated=true
+web/** linguist-generated=true
