@@ -14,7 +14,7 @@ class ComplainScreen extends StatefulWidget {
 }
 
 class _ComplainScreenState extends State<ComplainScreen> {
-  int _selectedTab = 0; // 0: All, 1: Pending, 2: Resolved
+  int _selectedTab = 0; // 0: All, 1: Pending, 2: Approved, 3: Rejected
 
   void _showAddComplaintSheet(BuildContext context, Color themeColor) {
     final user = Provider.of<AppProvider>(context, listen: false).currentUser;
@@ -215,10 +215,15 @@ class _ComplainScreenState extends State<ComplainScreen> {
     final complaintSource = isAdminMode ? appProvider.complaints : appProvider.myComplaints;
 
     final displayComplaints = complaintSource.where((c) {
-      if (_selectedTab == 1) return c.status == 'PENDING';
-      if (_selectedTab == 2) return c.status == 'RESOLVED';
+      if (_selectedTab == 1) return c.isPending;
+      if (_selectedTab == 2) return c.isApproved;
+      if (_selectedTab == 3) return c.isRejected;
       return true;
     }).toList();
+
+    final pendingCount = complaintSource.where((c) => c.isPending).length;
+    final approvedCount = complaintSource.where((c) => c.isApproved).length;
+    final rejectedCount = complaintSource.where((c) => c.isRejected).length;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -227,7 +232,7 @@ class _ComplainScreenState extends State<ComplainScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
-          isAdminMode ? 'All Complaints' : 'My Complaints',
+          isAdminMode ? 'Complaints Management' : 'My Complaints',
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -246,9 +251,9 @@ class _ComplainScreenState extends State<ComplainScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Tabs: All, Pending, Resolved
+            // Tabs: All, Pending, Approved, Rejected
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Container(
                 height: 38,
                 padding: const EdgeInsets.all(3),
@@ -259,8 +264,9 @@ class _ComplainScreenState extends State<ComplainScreen> {
                 child: Row(
                   children: [
                     _buildTab(0, 'All (${complaintSource.length})', themeColor),
-                    _buildTab(1, 'Pending (${complaintSource.where((c) => c.status == "PENDING").length})', themeColor),
-                    _buildTab(2, 'Resolved (${complaintSource.where((c) => c.status == "RESOLVED").length})', themeColor),
+                    _buildTab(1, 'Pending ($pendingCount)', themeColor),
+                    _buildTab(2, 'Approved ($approvedCount)', themeColor),
+                    _buildTab(3, 'Rejected ($rejectedCount)', themeColor),
                   ],
                 ),
               ),
@@ -282,7 +288,7 @@ class _ComplainScreenState extends State<ComplainScreen> {
                                 const Icon(Icons.check_circle_outline_rounded, size: 48, color: AppColors.line),
                                 const SizedBox(height: 8),
                                 Text(
-                                  isAdminMode ? 'No complaints found' : 'You have no complaints in this category',
+                                  isAdminMode ? 'No complaints in this category' : 'You have no complaints in this category',
                                   style: const TextStyle(fontSize: 13, color: AppColors.muted),
                                 ),
                               ],
@@ -292,11 +298,26 @@ class _ComplainScreenState extends State<ComplainScreen> {
                       )
                     : ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 6.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
                         itemCount: displayComplaints.length,
                         itemBuilder: (context, index) {
                         final item = displayComplaints[index];
-                        final isPending = item.status == 'PENDING';
+                        final isApproved = item.isApproved;
+                        final isRejected = item.isRejected;
+
+                        Color statusBgColor = const Color(0xFFFFF0D8);
+                        Color statusTextColor = AppColors.orange;
+                        String statusLabel = 'PENDING';
+
+                        if (isApproved) {
+                          statusBgColor = const Color(0xFFDFF8EB);
+                          statusTextColor = AppColors.green;
+                          statusLabel = 'APPROVED';
+                        } else if (isRejected) {
+                          statusBgColor = const Color(0xFFFEE2E2);
+                          statusTextColor = AppColors.red;
+                          statusLabel = 'REJECTED';
+                        }
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12.0),
@@ -304,7 +325,13 @@ class _ComplainScreenState extends State<ComplainScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.line),
+                            border: Border.all(
+                              color: isRejected
+                                  ? AppColors.red.withValues(alpha: 0.3)
+                                  : isApproved
+                                      ? AppColors.green.withValues(alpha: 0.3)
+                                      : AppColors.line,
+                            ),
                             boxShadow: const [
                               BoxShadow(
                                 color: AppColors.cardShadow,
@@ -347,15 +374,15 @@ class _ComplainScreenState extends State<ComplainScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: isPending ? const Color(0xFFFFF0D8) : const Color(0xFFDFF8EB),
+                                      color: statusBgColor,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      item.status,
+                                      statusLabel,
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
-                                        color: isPending ? AppColors.orange : AppColors.green,
+                                        color: statusTextColor,
                                       ),
                                     ),
                                   ),
@@ -395,44 +422,126 @@ class _ComplainScreenState extends State<ComplainScreen> {
                                   ),
                                   Row(
                                     children: [
-                                      // Status action (Available to Admin and User)
-                                      InkWell(
-                                        onTap: () {
-                                          appProvider.toggleComplaintStatus(item.id);
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                '${item.ticketNo} marked as ${isPending ? "RESOLVED" : "PENDING"}',
-                                              ),
-                                              backgroundColor: isPending ? AppColors.green : AppColors.orange,
-                                              duration: const Duration(seconds: 1),
-                                            ),
-                                          );
-                                        },
-                                        borderRadius: BorderRadius.circular(6),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: isPending
-                                                ? AppColors.green.withValues(alpha: 0.1)
-                                                : AppColors.orange.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            isPending ? 'Mark Resolved' : 'Reopen',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: isPending ? AppColors.green : AppColors.orange,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                      // ADMIN APPROVE & REJECT ACTIONS
                                       if (isAdminMode) ...[
-                                        const SizedBox(width: 8),
+                                        if (!isApproved) ...[
+                                          InkWell(
+                                            onTap: () {
+                                              appProvider.approveComplaint(item.id);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('${item.ticketNo} has been APPROVED!'),
+                                                  backgroundColor: AppColors.green,
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFDFF8EB),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.check_circle_outline, size: 12, color: AppColors.green),
+                                                  SizedBox(width: 4),
+                                                  Text(
+                                                    'Approve',
+                                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.green),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        if (!isRejected) ...[
+                                          InkWell(
+                                            onTap: () {
+                                              appProvider.rejectComplaint(item.id);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('${item.ticketNo} has been REJECTED.'),
+                                                  backgroundColor: AppColors.red,
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFEE2E2),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: AppColors.red.withValues(alpha: 0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.cancel_outlined, size: 12, color: AppColors.red),
+                                                  SizedBox(width: 4),
+                                                  Text(
+                                                    'Reject',
+                                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.red),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        if (isApproved || isRejected) ...[
+                                          InkWell(
+                                            onTap: () {
+                                              appProvider.reopenComplaint(item.id);
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('${item.ticketNo} reopened and set to PENDING.'),
+                                                  backgroundColor: AppColors.orange,
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFFF0D8),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Text(
+                                                'Reopen',
+                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.orange),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
                                         InkWell(
                                           onTap: () => _deleteComplaint(context, item),
                                           child: const Icon(Icons.delete_outline, size: 16, color: AppColors.red),
+                                        ),
+                                      ] else ...[
+                                        // USER VIEW STATUS LABEL
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: statusBgColor,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            isApproved
+                                                ? 'Approved by Admin'
+                                                : isRejected
+                                                    ? 'Rejected by Admin'
+                                                    : 'Under Admin Review',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: statusTextColor,
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ],

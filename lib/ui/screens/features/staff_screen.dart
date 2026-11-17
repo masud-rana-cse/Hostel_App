@@ -234,17 +234,20 @@ class _StaffScreenState extends State<StaffScreen> {
                       ),
                       onPressed: () {
                         if (formKey.currentState!.validate()) {
-                          staff.name = nameCtrl.text.trim();
-                          staff.role = roleCtrl.text.trim();
-                          staff.shift = shiftCtrl.text.trim();
-                          staff.salary = salaryCtrl.text.trim();
-                          staff.phone = phoneCtrl.text.trim();
+                          final updated = StaffMember(
+                            id: staff.id,
+                            name: nameCtrl.text.trim(),
+                            role: roleCtrl.text.trim(),
+                            shift: shiftCtrl.text.trim(),
+                            salary: salaryCtrl.text.trim(),
+                            phone: phoneCtrl.text.trim(),
+                          );
 
-                          Provider.of<AppProvider>(context, listen: false).updateStaff(staff);
+                          Provider.of<AppProvider>(context, listen: false).updateStaff(updated);
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('${staff.name} details updated'),
+                              content: Text('${updated.name} details updated'),
                               backgroundColor: AppColors.green,
                             ),
                           );

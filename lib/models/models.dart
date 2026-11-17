@@ -19,12 +19,12 @@ class AppUser {
     required this.phone,
     required this.studentId,
     required this.role,
-    this.department = 'CSE',
-    this.room = '204B',
-    this.address = 'Sector 9, Uttara, Dhaka',
-    this.guardian = 'Md. Abdur Rahim (01711000000)',
-    this.joinedDate = 'Jan 15, 2024',
-    this.password = 'password123',
+    this.department = ' ',
+    this.room = ' ',
+    this.address = ' ',
+    this.guardian = ' ',
+    this.joinedDate = ' ',
+    this.password = ' ',
   });
 
   bool get isAdmin => role.toLowerCase() == 'admin' || email.toLowerCase().contains('admin');
@@ -130,12 +130,12 @@ class StudentItem {
   factory StudentItem.fromMap(Map<String, dynamic> map) {
     return StudentItem(
       id: map['id']?.toString() ?? '',
-      name: map['name']?.toString() ?? '',
-      studentId: (map['student_id'] ?? map['studentId'] ?? '').toString(),
-      room: map['room']?.toString() ?? '',
-      phone: map['phone']?.toString() ?? '01712345678',
-      department: map['department']?.toString() ?? 'CSE',
-      joinedDate: (map['joined_date'] ?? map['joinedDate'] ?? 'Jan 15, 2024').toString(),
+      name: (map['name'] ?? map['full_name'] ?? map['student_name'] ?? '').toString(),
+      studentId: (map['student_id'] ?? map['studentId'] ?? map['roll'] ?? '').toString(),
+      room: (map['room'] ?? map['room_no'] ?? map['roomNumber'] ?? '').toString(),
+      phone: (map['phone'] ?? map['mobile'] ?? map['phone_number'] ?? '01712345678').toString(),
+      department: (map['department'] ?? map['dept'] ?? 'CSE').toString(),
+      joinedDate: (map['joined_date'] ?? map['joinedDate'] ?? 'Apr 2025').toString(),
     );
   }
 
@@ -221,7 +221,7 @@ class ComplaintItem {
   String category;
   String description;
   String date;
-  String status; // 'PENDING' or 'RESOLVED'
+  String status; // 'PENDING', 'APPROVED', 'REJECTED'
 
   ComplaintItem({
     required this.id,
@@ -235,6 +235,10 @@ class ComplaintItem {
     required this.status,
   });
 
+  bool get isPending => status.toUpperCase() == 'PENDING';
+  bool get isApproved => status.toUpperCase() == 'APPROVED' || status.toUpperCase() == 'RESOLVED';
+  bool get isRejected => status.toUpperCase() == 'REJECTED';
+
   factory ComplaintItem.fromMap(Map<String, dynamic> map) {
     return ComplaintItem(
       id: map['id']?.toString() ?? '',
@@ -245,7 +249,7 @@ class ComplaintItem {
       category: map['category']?.toString() ?? 'General',
       description: map['description']?.toString() ?? '',
       date: map['date']?.toString() ?? 'Recently',
-      status: map['status']?.toString() ?? 'PENDING',
+      status: (map['status']?.toString() ?? 'PENDING').toUpperCase(),
     );
   }
 
@@ -267,6 +271,7 @@ class ComplaintItem {
 class PaymentItem {
   final String id;
   final String receiptNo;
+  final String userId;
   String studentName;
   String room;
   double amount;
@@ -274,10 +279,12 @@ class PaymentItem {
   bool isPaid;
   String month;
   String method;
+  String trxId;
 
   PaymentItem({
     required this.id,
     required this.receiptNo,
+    this.userId = '',
     required this.studentName,
     required this.room,
     required this.amount,
@@ -285,12 +292,14 @@ class PaymentItem {
     required this.isPaid,
     this.month = 'April 2025',
     this.method = 'bKash',
+    this.trxId = '',
   });
 
   factory PaymentItem.fromMap(Map<String, dynamic> map) {
     return PaymentItem(
       id: map['id']?.toString() ?? '',
       receiptNo: (map['receipt_no'] ?? map['receiptNo'] ?? 'RCP-0000').toString(),
+      userId: (map['user_id'] ?? map['userId'] ?? '').toString(),
       studentName: (map['student_name'] ?? map['studentName'] ?? 'Resident').toString(),
       room: map['room']?.toString() ?? 'Room 101A',
       amount: (map['amount'] is num)
@@ -300,6 +309,7 @@ class PaymentItem {
       isPaid: map['is_paid'] == true || map['isPaid'] == true,
       month: map['month']?.toString() ?? 'April 2025',
       method: map['method']?.toString() ?? 'bKash',
+      trxId: (map['trx_id'] ?? map['trxId'] ?? map['transaction_id'] ?? '').toString(),
     );
   }
 
@@ -307,6 +317,7 @@ class PaymentItem {
     return {
       'id': id,
       'receipt_no': receiptNo,
+      'user_id': userId,
       'student_name': studentName,
       'room': room,
       'amount': amount,
@@ -314,6 +325,7 @@ class PaymentItem {
       'is_paid': isPaid,
       'month': month,
       'method': method,
+      'trx_id': trxId,
     };
   }
 }

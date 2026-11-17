@@ -12,120 +12,7 @@ class AppProvider extends ChangeNotifier {
   Color _themeColor = AppColors.blue;
   bool _isLoadingData = false;
 
-  // Preset Demo Accounts Fallback
-  static final List<AppUser> _demoUsers = [
-    AppUser(
-      id: 'admin_1',
-      name: 'Hostel Administrator',
-      email: 'admin@gmail.com',
-      phone: '01700000000',
-      studentId: 'ADM-001',
-      role: 'admin',
-      department: 'Hostel Administration',
-      room: 'Office 101',
-      address: 'Hostel Admin Complex, Uttara',
-      guardian: 'Board of Governors',
-      joinedDate: 'Jan 01, 2023',
-      password: 'password123',
-    ),
-    AppUser(
-      id: 'user_1',
-      name: 'Md. Masud Rana',
-      email: 'masud@gmail.com',
-      phone: '01712345678',
-      studentId: '241071031',
-      role: 'student',
-      department: 'CSE (Computer Science)',
-      room: '204B',
-      address: 'Sector 9, Uttara, Dhaka',
-      guardian: 'Md. Abdur Rahim (01711000000)',
-      joinedDate: 'Jan 15, 2024',
-      password: 'password123',
-    ),
-    AppUser(
-      id: 'user_2',
-      name: 'Jonaki Akter',
-      email: 'jonaki@gmail.com',
-      phone: '01812345672',
-      studentId: '241071032',
-      role: 'student',
-      department: 'BBA (Management)',
-      room: '301A',
-      address: 'Mirpur 10, Dhaka',
-      guardian: 'Mohammad Ali (01811223344)',
-      joinedDate: 'Feb 10, 2024',
-      password: 'password123',
-    ),
-    AppUser(
-      id: 'user_3',
-      name: 'Rakib Hasan',
-      email: 'rakib@gmail.com',
-      phone: '01912345673',
-      studentId: '241071035',
-      role: 'student',
-      department: 'EEE (Electrical)',
-      room: '105C',
-      address: 'Dhanmondi, Dhaka',
-      guardian: 'Kalam Hasan (01911445566)',
-      joinedDate: 'Mar 01, 2024',
-      password: 'password123',
-    ),
-    AppUser(
-      id: 'user_4',
-      name: 'Sadia Islam',
-      email: 'sadia@gmail.com',
-      phone: '01612345674',
-      studentId: '241071037',
-      role: 'student',
-      department: 'Pharmacy',
-      room: '202A',
-      address: 'Banani, Dhaka',
-      guardian: 'Nazrul Islam (01611778899)',
-      joinedDate: 'Mar 15, 2024',
-      password: 'password123',
-    ),
-  ];
-
-  static final List<StudentItem> _defaultStudents = [
-    StudentItem(
-      id: '1',
-      name: 'Md. Masud Rana',
-      studentId: '241071031',
-      room: '204B',
-      phone: '01712345678',
-      department: 'CSE (Computer Science)',
-      joinedDate: 'Jan 15, 2024',
-    ),
-    StudentItem(
-      id: '2',
-      name: 'Jonaki Akter',
-      studentId: '241071032',
-      room: '301A',
-      phone: '01812345672',
-      department: 'BBA (Management)',
-      joinedDate: 'Feb 10, 2024',
-    ),
-    StudentItem(
-      id: '3',
-      name: 'Rakib Hasan',
-      studentId: '241071035',
-      room: '105C',
-      phone: '01912345673',
-      department: 'EEE (Electrical)',
-      joinedDate: 'Mar 01, 2024',
-    ),
-    StudentItem(
-      id: '4',
-      name: 'Sadia Islam',
-      studentId: '241071037',
-      room: '202A',
-      phone: '01612345674',
-      department: 'Pharmacy',
-      joinedDate: 'Mar 15, 2024',
-    ),
-  ];
-
-  // Real Database Collections
+  // Real Database Collections from Supabase
   final List<AppUser> _users = [];
   final List<StudentItem> _students = [];
   final List<StaffMember> _staff = [];
@@ -147,10 +34,6 @@ class AppProvider extends ChangeNotifier {
     _authService.ensureAdminAccountExists();
   }
 
-  bool _isDemoUser(String email) {
-    return _demoUsers.any((u) => u.email.toLowerCase() == email.trim().toLowerCase());
-  }
-
   // -------------------------------------------------------------
   // INITIALIZATION & SESSION MANAGEMENT
   // -------------------------------------------------------------
@@ -168,11 +51,9 @@ class AppProvider extends ChangeNotifier {
         if (event == AuthChangeEvent.signedIn && session != null) {
           _loadUserAndFetchData(session.user);
         } else if (event == AuthChangeEvent.signedOut) {
-          if (_currentUser != null && !_isDemoUser(_currentUser!.email)) {
-            _currentUser = null;
-            _clearLocalData();
-            notifyListeners();
-          }
+          _currentUser = null;
+          _clearLocalData();
+          notifyListeners();
         }
       });
     } catch (e) {
@@ -195,15 +76,21 @@ class AppProvider extends ChangeNotifier {
   }
 
   // -------------------------------------------------------------
-  // GETTERS
+  // GETTERS (100% Real Supabase Data)
   // -------------------------------------------------------------
   AppUser? get currentUser => _currentUser;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
   Color get themeColor => _themeColor;
   bool get isLoadingData => _isLoadingData;
 
-  List<AppUser> get allUsers => List.unmodifiable(_users.isNotEmpty ? _users : _demoUsers);
-  List<StudentItem> get students => List.unmodifiable(_students.isNotEmpty ? _students : _defaultStudents);
+  List<AppUser> get allUsers {
+    if (_users.isEmpty && _currentUser != null) {
+      return [_currentUser!];
+    }
+    return List.unmodifiable(_users);
+  }
+
+  List<StudentItem> get students => List.unmodifiable(_students);
   List<StaffMember> get staff => List.unmodifiable(_staff);
   List<ComplaintItem> get complaints => List.unmodifiable(_complaints);
   List<PaymentItem> get payments => List.unmodifiable(_payments);
@@ -224,10 +111,12 @@ class AppProvider extends ChangeNotifier {
   List<PaymentItem> get myPayments {
     if (_currentUser == null) return [];
     return _payments.where((p) {
-      return (p.studentName.isNotEmpty &&
+      return (p.userId.isNotEmpty && p.userId == _currentUser!.id) ||
+          (p.studentName.isNotEmpty &&
               p.studentName.toLowerCase() == _currentUser!.name.toLowerCase()) ||
           (p.room.isNotEmpty &&
-              p.room.toLowerCase() == _currentUser!.room.toLowerCase());
+              p.room.toLowerCase().replaceAll('room', '').trim() ==
+                  _currentUser!.room.toLowerCase().replaceAll('room', '').trim());
     }).toList();
   }
 
@@ -247,8 +136,8 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await fetchProfiles();
       await Future.wait([
-        fetchProfiles(),
         fetchStudents(),
         fetchStaff(),
         fetchComplaints(),
@@ -264,22 +153,30 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> fetchProfiles() async {
     final list = await _dbService.fetchAllProfiles();
-    if (list.isNotEmpty) {
-      _users.clear();
-      _users.addAll(list);
-    }
+    _users.clear();
+    _users.addAll(list);
     notifyListeners();
   }
 
   Future<void> fetchStudents() async {
     final list = await _dbService.fetchStudents();
-    if (list.isNotEmpty) {
-      _students.clear();
-      _students.addAll(list);
-    } else if (_students.isEmpty) {
-      _students.addAll(_defaultStudents);
-      for (final s in _defaultStudents) {
-        _dbService.insertStudent(s);
+    _students.clear();
+    _students.addAll(list);
+
+    // Synchronize any registered student accounts from profiles into the students list
+    for (final u in _users) {
+      if (!u.isAdmin && !_students.any((s) => s.id == u.id || (s.studentId.isNotEmpty && s.studentId == u.studentId))) {
+        final newStudent = StudentItem(
+          id: u.id,
+          name: u.name,
+          studentId: u.studentId.isNotEmpty ? u.studentId : 'STD-000',
+          room: u.room.isNotEmpty ? u.room : '101A',
+          phone: u.phone.isNotEmpty ? u.phone : '01700000000',
+          department: u.department.isNotEmpty ? u.department : 'CSE',
+          joinedDate: u.joinedDate.isNotEmpty ? u.joinedDate : 'Recently',
+        );
+        _students.add(newStudent);
+        _dbService.insertStudent(newStudent);
       }
     }
     notifyListeners();
@@ -313,27 +210,8 @@ class AppProvider extends ChangeNotifier {
   }
 
   // -------------------------------------------------------------
-  // AUTHENTICATION OPERATIONS
+  // AUTHENTICATION OPERATIONS (100% Real Supabase Auth)
   // -------------------------------------------------------------
-  Future<void> _tryQuietSupabaseAuth(String cleanEmail, String cleanPass) async {
-    try {
-      final (success, _) = await _authService.signInWithPassword(cleanEmail, cleanPass);
-      if (!success) {
-        final mockUser = _demoUsers.firstWhere((u) => u.email.toLowerCase() == cleanEmail);
-        await _authService.signUp(
-          name: mockUser.name,
-          email: cleanEmail,
-          password: cleanPass,
-          phone: mockUser.phone,
-          studentId: mockUser.studentId,
-          role: mockUser.role,
-          department: mockUser.department,
-          room: mockUser.room,
-        );
-      }
-    } catch (_) {}
-  }
-
   Future<(bool, String)> login(String email, String password) async {
     final cleanEmail = email.trim().toLowerCase();
     final cleanPass = password.trim();
@@ -342,37 +220,25 @@ class AppProvider extends ChangeNotifier {
       return (false, 'Please enter both email and password.');
     }
 
-    // 1. Check Demo Accounts First for instant & guaranteed login
-    final mockIndex = _demoUsers.indexWhere((u) => u.email.toLowerCase() == cleanEmail);
-    if (mockIndex != -1) {
-      final mockUser = _demoUsers[mockIndex];
-      final isPasswordValid = (mockUser.password == cleanPass) ||
-          (mockUser.isAdmin && (cleanPass == 'admin123' || cleanPass == 'password123')) ||
-          (!mockUser.isAdmin && (cleanPass == 'user123' || cleanPass == 'password123'));
+    _isLoadingData = true;
+    notifyListeners();
 
-      if (isPasswordValid) {
-        _currentUser = mockUser;
-        notifyListeners();
-        _tryQuietSupabaseAuth(cleanEmail, cleanPass);
-        await fetchAllDataFromSupabase();
+    try {
+      final (success, message) = await _authService.signInWithPassword(cleanEmail, cleanPass);
+
+      if (success) {
+        final user = _authService.currentUser;
+        if (user != null) {
+          await _loadUserAndFetchData(user);
+        }
         return (true, 'Success');
-      } else {
-        return (false, 'Incorrect password. Please use password123.');
       }
+
+      return (false, message);
+    } finally {
+      _isLoadingData = false;
+      notifyListeners();
     }
-
-    // 2. Try Real Supabase Auth for new/registered accounts
-    final (success, message) = await _authService.signInWithPassword(cleanEmail, cleanPass);
-
-    if (success) {
-      final user = _authService.currentUser;
-      if (user != null) {
-        await _loadUserAndFetchData(user);
-      }
-      return (true, 'Success');
-    }
-
-    return (false, message);
   }
 
   Future<(bool, String)> signUp({
@@ -385,22 +251,32 @@ class AppProvider extends ChangeNotifier {
     String department = 'CSE',
     String room = '101A',
   }) async {
-    final (success, message) = await _authService.signUp(
-      name: name,
-      email: email,
-      password: password,
-      phone: phone,
-      studentId: studentId,
-      role: role,
-      department: department,
-      room: room,
-    );
+    _isLoadingData = true;
+    notifyListeners();
 
-    if (success && _authService.currentUser != null) {
-      await _loadUserAndFetchData(_authService.currentUser!);
+    try {
+      final (success, message) = await _authService.signUp(
+        name: name,
+        email: email,
+        password: password,
+        phone: phone,
+        studentId: studentId,
+        role: role,
+        department: department,
+        room: room,
+      );
+
+      if (success && _authService.currentUser != null) {
+        await _loadUserAndFetchData(_authService.currentUser!);
+      } else {
+        await fetchAllDataFromSupabase();
+      }
+
+      return (success, message);
+    } finally {
+      _isLoadingData = false;
+      notifyListeners();
     }
-
-    return (success, message);
   }
 
   Future<(bool, String)> signInWithGoogle() async {
@@ -494,10 +370,30 @@ class AppProvider extends ChangeNotifier {
       _students[index] = updatedStudent;
       notifyListeners();
     }
-    final ok = await _dbService.updateStudent(updatedStudent);
-    if (ok) {
-      await fetchStudents();
+    await _dbService.updateStudent(updatedStudent);
+
+    // Also update profiles table if student has a registered account
+    final pIndex = _users.indexWhere((u) =>
+        u.id == updatedStudent.id ||
+        (u.studentId.isNotEmpty && u.studentId == updatedStudent.studentId));
+    if (pIndex != -1) {
+      final user = _users[pIndex];
+      user.name = updatedStudent.name;
+      user.room = updatedStudent.room;
+      user.phone = updatedStudent.phone;
+      user.department = updatedStudent.department;
+      user.studentId = updatedStudent.studentId;
+      await _dbService.updateProfile(
+        userId: user.id,
+        name: user.name,
+        phone: user.phone,
+        department: user.department,
+        room: user.room,
+        studentId: user.studentId,
+        address: user.address,
+      );
     }
+    await fetchStudents();
   }
 
   Future<void> deleteStudent(String id) async {
@@ -564,11 +460,34 @@ class AppProvider extends ChangeNotifier {
     await fetchComplaints();
   }
 
+  Future<void> updateComplaintStatus(String id, String newStatus) async {
+    final cleanStatus = newStatus.trim().toUpperCase();
+    final index = _complaints.indexWhere((c) => c.id == id);
+    if (index != -1) {
+      _complaints[index].status = cleanStatus;
+      notifyListeners();
+      await _dbService.updateComplaintStatus(id, cleanStatus);
+      await fetchComplaints();
+    }
+  }
+
+  Future<void> approveComplaint(String id) async {
+    await updateComplaintStatus(id, 'APPROVED');
+  }
+
+  Future<void> rejectComplaint(String id) async {
+    await updateComplaintStatus(id, 'REJECTED');
+  }
+
+  Future<void> reopenComplaint(String id) async {
+    await updateComplaintStatus(id, 'PENDING');
+  }
+
   Future<void> toggleComplaintStatus(String id) async {
     final index = _complaints.indexWhere((c) => c.id == id);
     if (index != -1) {
       final current = _complaints[index];
-      final newStatus = (current.status == 'PENDING') ? 'RESOLVED' : 'PENDING';
+      final newStatus = current.isPending ? 'APPROVED' : 'PENDING';
       current.status = newStatus;
       notifyListeners();
       await _dbService.updateComplaintStatus(id, newStatus);

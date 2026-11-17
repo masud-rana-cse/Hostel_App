@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../models/models.dart';
 import '../../../providers/app_provider.dart';
 import '../../theme/app_theme.dart';
 
@@ -14,7 +15,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  void _showNotificationsSheet() {
+  void _showNotificationsSheet(AppProvider provider) {
+    final pendingComplaints = provider.complaints.where((c) => c.status == 'PENDING').length;
+    final paidCount = provider.payments.where((p) => p.isPaid).length;
+    final dueCount = provider.payments.where((p) => !p.isPaid).length;
+    final userCount = provider.allUsers.length;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -56,31 +62,33 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: const Color(0xFFEAF3FF),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      '3 New',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.blue),
+                    child: Text(
+                      '${(pendingComplaints > 0 ? 1 : 0) + (dueCount > 0 ? 1 : 0) + 1} New',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.blue),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 14),
+              if (pendingComplaints > 0)
+                _buildNotificationItem(
+                  color: AppColors.red,
+                  title: 'Active Complaints Pending',
+                  subtitle: '$pendingComplaints resident complaint ticket(s) require action',
+                  time: 'Active',
+                ),
+              if (dueCount > 0)
+                _buildNotificationItem(
+                  color: AppColors.orange,
+                  title: 'Pending Invoices',
+                  subtitle: '$dueCount unpaid hostel payment(s) recorded in Supabase',
+                  time: 'Attention',
+                ),
               _buildNotificationItem(
                 color: AppColors.green,
-                title: 'Payment Received',
-                subtitle: 'Rent of ৳3,000 received for April 2025',
-                time: 'Apr 10, 2025',
-              ),
-              _buildNotificationItem(
-                color: AppColors.blue,
-                title: 'Message from Warden',
-                subtitle: 'Routine room inspection tomorrow at 10:00 AM',
-                time: 'Apr 08, 2025',
-              ),
-              _buildNotificationItem(
-                color: AppColors.orange,
-                title: 'Gate Timing Notice',
-                subtitle: 'Hostel gate closes at 10:30 PM promptly',
-                time: 'Apr 06, 2025',
+                title: 'Supabase Cloud Sync',
+                subtitle: '$paidCount paid receipt(s) & $userCount registered user account(s) online',
+                time: 'Live',
               ),
               const SizedBox(height: 10),
             ],
@@ -90,7 +98,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showRoomDetailsSheet(String room, Color themeColor) {
+  void _showRoomDetailsSheet(String room, Color themeColor, AppProvider provider) {
+    final roommates = provider.students
+        .where((s) => s.room.trim().toLowerCase() == room.trim().toLowerCase())
+        .map((s) => s.name)
+        .toList();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -124,12 +137,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              _buildRoomDetailItem('Assigned Bed', 'Bed A (Window View)'),
-              _buildRoomDetailItem('Floor & Wing', '2nd Floor, East Wing'),
-              _buildRoomDetailItem('Room Capacity', '2 Persons (1 Roommate: Jonaki)'),
-              _buildRoomDetailItem('Attached Washroom', 'Yes (Cleaned Daily)'),
-              _buildRoomDetailItem('Electricity Backup', '24/7 IPS Connection'),
-              _buildRoomDetailItem('Monthly Rent', '৳3,000 / Month'),
+              _buildRoomDetailItem('Assigned Room', room.isNotEmpty ? room : 'Unassigned'),
+              _buildRoomDetailItem(
+                'Current Residents',
+                roommates.isNotEmpty ? roommates.join(', ') : 'No roommates assigned yet',
+              ),
+              _buildRoomDetailItem('Facilities', 'Wi-Fi, 24/7 IPS Power, Daily Housekeeping'),
+              _buildRoomDetailItem('Standard Rent', '৳3,000 / Month'),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -147,6 +161,233 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showUserDetailsSheet(AppUser u, Color themeColor, AppProvider provider) {
+    final isAdminUser = u.isAdmin;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(22.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.line,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: isAdminUser
+                        ? themeColor.withValues(alpha: 0.15)
+                        : const Color(0xFFEAF3FF),
+                    child: Text(
+                      u.initials,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isAdminUser ? themeColor : AppColors.navy,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          u.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                        Text(
+                          u.email,
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isAdminUser ? const Color(0xFFEDE9FE) : const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isAdminUser ? 'ADMIN' : 'STUDENT',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isAdminUser ? const Color(0xFF6D28D9) : const Color(0xFF0284C7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24, color: AppColors.line),
+              _buildRoomDetailItem('Student ID', u.studentId),
+              _buildRoomDetailItem('Assigned Room', u.room),
+              _buildRoomDetailItem('Department', u.department),
+              _buildRoomDetailItem('Phone Number', u.phone),
+              _buildRoomDetailItem('Address', u.address),
+              _buildRoomDetailItem('Joined Date', u.joinedDate),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.muted,
+                        side: const BorderSide(color: AppColors.line),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Close'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isAdminUser ? const Color(0xFFFEE2E2) : themeColor,
+                        foregroundColor: isAdminUser ? AppColors.red : Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () {
+                        provider.toggleAdminPermission(u.id);
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '${u.name} role updated to ${!isAdminUser ? "Admin" : "Student"}!',
+                            ),
+                            backgroundColor: !isAdminUser ? AppColors.green : AppColors.orange,
+                          ),
+                        );
+                      },
+                      child: Text(isAdminUser ? 'Revoke Admin' : 'Make Admin'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDynamicPaymentChart({
+    required List<PaymentItem> payments,
+    required Color themeColor,
+    required double height,
+    required String emptyMessage,
+  }) {
+    final paidList = payments.where((p) => p.isPaid).toList();
+    if (paidList.isEmpty) {
+      return Container(
+        height: height,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.line),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.cardShadow,
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.bar_chart_rounded, size: 32, color: AppColors.muted.withValues(alpha: 0.5)),
+              const SizedBox(height: 6),
+              Text(
+                emptyMessage,
+                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Group paid amounts by month
+    final Map<String, double> monthlySums = {};
+    for (final p in paidList) {
+      final rawMonth = p.month.trim();
+      final parts = rawMonth.split(' ');
+      String shortMonth = parts.first;
+      if (shortMonth.length > 3) {
+        shortMonth = shortMonth.substring(0, 3);
+      }
+      monthlySums[shortMonth] = (monthlySums[shortMonth] ?? 0.0) + p.amount;
+    }
+
+    double maxVal = 0.0;
+    for (final v in monthlySums.values) {
+      if (v > maxVal) maxVal = v;
+    }
+    if (maxVal <= 0) maxVal = 1.0;
+
+    return Container(
+      height: height,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.line),
+        gradient: const LinearGradient(
+          colors: [Colors.white, Color(0xFFF8FBFF)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: monthlySums.entries.map((entry) {
+          final heightFactor = (entry.value / maxVal).clamp(0.2, 1.0);
+          return _BarItem(
+            heightFactor: heightFactor,
+            label: entry.key,
+            amountText: '৳${entry.value.toStringAsFixed(0)}',
+            themeColor: themeColor,
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -284,7 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: AppColors.navy,
                         size: 22,
                       ),
-                      onPressed: _showNotificationsSheet,
+                      onPressed: () => _showNotificationsSheet(appProvider),
                     ),
                     Positioned(
                       right: 12,
@@ -496,111 +737,123 @@ class _HomeScreenState extends State<HomeScreen> {
               final u = provider.allUsers[index];
               final isAdminUser = u.isAdmin;
 
-              return Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: isAdminUser
-                        ? themeColor.withValues(alpha: 0.15)
-                        : const Color(0xFFEAF3FF),
-                    child: Text(
-                      u.initials,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isAdminUser ? themeColor : AppColors.navy,
+              return InkWell(
+                onTap: () => _showUserDetailsSheet(u, themeColor, provider),
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isAdminUser
+                            ? themeColor.withValues(alpha: 0.15)
+                            : const Color(0xFFEAF3FF),
+                        child: Text(
+                          u.initials,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isAdminUser ? themeColor : AppColors.navy,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Flexible(
-                              child: Text(
-                                u.name,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.navy,
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    u.name,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.navy,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isAdminUser
+                                        ? const Color(0xFFEDE9FE)
+                                        : const Color(0xFFE0F2FE),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    isAdminUser ? 'ADMIN' : 'STUDENT',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: isAdminUser
+                                          ? const Color(0xFF6D28D9)
+                                          : const Color(0xFF0284C7),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isAdminUser
-                                    ? const Color(0xFFEDE9FE)
-                                    : const Color(0xFFE0F2FE),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isAdminUser ? 'ADMIN' : 'STUDENT',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: isAdminUser
-                                      ? const Color(0xFF6D28D9)
-                                      : const Color(0xFF0284C7),
-                                ),
-                              ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${u.email}  ·  ID: ${u.studentId}  ·  Room: ${u.room}',
+                              style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Dept: ${u.department}  ·  ${u.phone}',
+                              style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${u.email}  ·  Room: ${u.room}',
-                          style: const TextStyle(fontSize: 10, color: AppColors.muted),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-
-                  // Permission Toggle Button
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isAdminUser ? const Color(0xFFFEE2E2) : themeColor,
-                      foregroundColor: isAdminUser ? AppColors.red : Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    onPressed: () {
-                      provider.toggleAdminPermission(u.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${u.name} is now ${!isAdminUser ? "granted Admin access" : "set to Student access"}!',
+                      const SizedBox(width: 6),
+
+                      // Permission Toggle Button
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isAdminUser ? const Color(0xFFFEE2E2) : themeColor,
+                          foregroundColor: isAdminUser ? AppColors.red : Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          backgroundColor: !isAdminUser ? AppColors.green : AppColors.orange,
-                          duration: const Duration(seconds: 2),
                         ),
-                      );
-                    },
-                    child: Text(
-                      isAdminUser ? 'Revoke Admin' : 'Make Admin',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
+                        onPressed: () {
+                          provider.toggleAdminPermission(u.id);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '${u.name} is now ${!isAdminUser ? "granted Admin access" : "set to Student access"}!',
+                              ),
+                              backgroundColor: !isAdminUser ? AppColors.green : AppColors.orange,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          isAdminUser ? 'Revoke Admin' : 'Make Admin',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               );
             },
           ),
         ),
         const SizedBox(height: 22),
 
-        // Monthly Payment Chart Section
+        // Monthly Payment Chart Section (100% Real Supabase Data)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -623,37 +876,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        Container(
+        _buildDynamicPaymentChart(
+          payments: provider.payments,
+          themeColor: themeColor,
           height: 140,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.line),
-            gradient: const LinearGradient(
-              colors: [Colors.white, Color(0xFFF8FBFF)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.cardShadow,
-                blurRadius: 10,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _BarItem(heightFactor: 0.40, label: 'Nov', themeColor: themeColor),
-              _BarItem(heightFactor: 0.60, label: 'Dec', themeColor: themeColor),
-              _BarItem(heightFactor: 0.50, label: 'Jan', themeColor: themeColor),
-              _BarItem(heightFactor: 0.75, label: 'Feb', themeColor: themeColor),
-              _BarItem(heightFactor: 0.70, label: 'Mar', themeColor: themeColor),
-              _BarItem(heightFactor: 0.88, label: 'Apr', themeColor: themeColor),
-            ],
-          ),
+          emptyMessage: 'No collection history recorded in Supabase yet',
         ),
         const SizedBox(height: 20),
       ],
@@ -727,7 +954,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: () => _showRoomDetailsSheet(myRoom, themeColor),
+                onPressed: () => _showRoomDetailsSheet(myRoom, themeColor, provider),
                 child: const Text(
                   'Room Details',
                   style: TextStyle(
@@ -741,20 +968,27 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // 2 Stats Cards
+        // 2 Stats Cards (100% Real Supabase Data)
         Row(
           children: [
             Expanded(
               child: _buildStudentStatCard(
                 label: 'Monthly Rent',
-                value: '৳3,000',
+                value: provider.myPayments.isNotEmpty
+                    ? '৳${provider.myPayments.first.amount.toStringAsFixed(0)}'
+                    : '৳3,000',
               ),
             ),
             const SizedBox(width: 9),
             Expanded(
               child: _buildStudentStatCard(
                 label: 'Last Payment',
-                value: '৳3,000 (Paid)',
+                value: () {
+                  final paid = provider.myPayments.where((p) => p.isPaid).toList();
+                  return paid.isNotEmpty
+                      ? '৳${paid.last.amount.toStringAsFixed(0)} (Paid)'
+                      : 'No payments yet';
+                }(),
               ),
             ),
           ],
@@ -816,7 +1050,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 18),
 
-        // Student Payment History Chart
+        // Student Payment History Chart (100% Real Supabase Data)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -842,33 +1076,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        Container(
+        _buildDynamicPaymentChart(
+          payments: provider.myPayments,
+          themeColor: themeColor,
           height: 120,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.line),
-            color: Colors.white,
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.cardShadow,
-                blurRadius: 10,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _BarItem(heightFactor: 0.60, label: 'Nov', themeColor: themeColor),
-              _BarItem(heightFactor: 0.60, label: 'Dec', themeColor: themeColor),
-              _BarItem(heightFactor: 0.60, label: 'Jan', themeColor: themeColor),
-              _BarItem(heightFactor: 0.60, label: 'Feb', themeColor: themeColor),
-              _BarItem(heightFactor: 0.60, label: 'Mar', themeColor: themeColor),
-              _BarItem(heightFactor: 0.60, label: 'Apr', themeColor: themeColor),
-            ],
-          ),
+          emptyMessage: 'No payment records found for your account yet',
         ),
         const SizedBox(height: 18),
 
@@ -1081,11 +1293,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _BarItem extends StatelessWidget {
   final double heightFactor;
   final String label;
+  final String? amountText;
   final Color themeColor;
 
   const _BarItem({
     required this.heightFactor,
     required this.label,
+    this.amountText,
     required this.themeColor,
   });
 
@@ -1094,9 +1308,20 @@ class _BarItem extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        if (amountText != null) ...[
+          Text(
+            amountText!,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: themeColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
         Container(
-          width: 20,
-          height: 80 * heightFactor,
+          width: 22,
+          height: 65 * heightFactor,
           decoration: BoxDecoration(
             color: themeColor,
             borderRadius: BorderRadius.circular(5),
@@ -1105,7 +1330,7 @@ class _BarItem extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: AppColors.muted),
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.muted),
         ),
       ],
     );

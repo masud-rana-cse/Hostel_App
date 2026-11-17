@@ -60,28 +60,28 @@ class _StudentScreenState extends State<StudentScreen> {
                 _buildDialogField(
                   controller: idController,
                   label: 'Student ID',
-                  hint: 'e.g. 241071040',
+                  hint: 'Enter student ID',
                   validator: (v) => v == null || v.trim().isEmpty ? 'Student ID is required' : null,
                 ),
                 const SizedBox(height: 10),
                 _buildDialogField(
                   controller: roomController,
                   label: 'Room Number',
-                  hint: 'e.g. 104A',
+                  hint: 'Enter room number',
                   validator: (v) => v == null || v.trim().isEmpty ? 'Room is required' : null,
                 ),
                 const SizedBox(height: 10),
                 _buildDialogField(
                   controller: phoneController,
                   label: 'Phone Number',
-                  hint: 'e.g. 01712345679',
+                  hint: 'Enter phone number',
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 10),
                 _buildDialogField(
                   controller: deptController,
                   label: 'Department',
-                  hint: 'e.g. BBA, CSE, EEE',
+                  hint: 'Enter department',
                 ),
               ],
             ),
@@ -203,17 +203,21 @@ class _StudentScreenState extends State<StudentScreen> {
             ),
             onPressed: () {
               if (formKey.currentState!.validate()) {
-                student.name = nameController.text.trim();
-                student.studentId = idController.text.trim();
-                student.room = roomController.text.trim();
-                student.phone = phoneController.text.trim();
-                student.department = deptController.text.trim();
+                final updated = StudentItem(
+                  id: student.id,
+                  name: nameController.text.trim(),
+                  studentId: idController.text.trim(),
+                  room: roomController.text.trim(),
+                  phone: phoneController.text.trim(),
+                  department: deptController.text.trim(),
+                  joinedDate: student.joinedDate,
+                );
 
-                Provider.of<AppProvider>(context, listen: false).updateStudent(student);
+                Provider.of<AppProvider>(context, listen: false).updateStudent(updated);
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${student.name} updated successfully!'),
+                    content: Text('${updated.name} updated successfully!'),
                     backgroundColor: AppColors.green,
                   ),
                 );

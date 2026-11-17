@@ -97,20 +97,25 @@ class AuthService {
         debugPrint('Notice saving to profiles table: $e');
       }
 
-      // Upsert student in 'students' roster table
+      // Upsert student in 'students' or 'student' roster table
       if (role.toLowerCase() == 'student') {
+        final studentMap = {
+          'id': user.id,
+          'name': name.trim(),
+          'student_id': studentId.trim(),
+          'room': room,
+          'phone': phone.trim(),
+          'department': department,
+          'joined_date': 'Apr 2025',
+        };
         try {
-          await _supabase.from('students').upsert({
-            'id': user.id,
-            'name': name.trim(),
-            'student_id': studentId.trim(),
-            'room': room,
-            'phone': phone.trim(),
-            'department': department,
-            'joined_date': 'Apr 2025',
-          });
-        } catch (e) {
-          debugPrint('Notice saving to students roster table: $e');
+          await _supabase.from('students').upsert(studentMap);
+        } catch (_) {
+          try {
+            await _supabase.from('student').upsert(studentMap);
+          } catch (e) {
+            debugPrint('Notice saving to student table: $e');
+          }
         }
       }
 
@@ -179,6 +184,35 @@ class AuthService {
           .select()
           .eq('id', user.id)
           .maybeSingle();
+
+      if (data == null) {
+        // First login or OAuth account: persist initial profile in Supabase
+        final profile = AppUser.fromSupabase(user, null);
+        try {
+          await _supabase.from('profiles').upsert(profile.toMap());
+          if (!profile.isAdmin) {
+            final studentData = {
+              'id': profile.id,
+              'name': profile.name,
+              'student_id': profile.studentId,
+              'room': profile.room,
+              'phone': profile.phone,
+              'department': profile.department,
+              'joined_date': profile.joinedDate,
+            };
+            try {
+              await _supabase.from('students').upsert(studentData);
+            } catch (_) {
+              try {
+                await _supabase.from('student').upsert(studentData);
+              } catch (_) {}
+            }
+          }
+        } catch (e) {
+          debugPrint('Notice saving initial profile for user: $e');
+        }
+        return profile;
+      }
 
       return AppUser.fromSupabase(user, data);
     } catch (e) {
