@@ -219,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final userName = user?.name ?? (isAdminMode ? 'Hostel Administrator' : 'Student Resident');
     final userSubtitle = isAdminMode
         ? 'Admin Portal · Full System Access'
-        : 'Resident · ${user?.room ?? "Room 204B"} (Bed A)';
+        : 'Resident · ${(user != null && user.room.isNotEmpty) ? user.room : "Room Unassigned"}';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -306,11 +306,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
-          child: isAdminMode
-              ? _buildAdminDashboard(appProvider, themeColor)
-              : _buildStudentDashboard(appProvider, themeColor),
+        child: RefreshIndicator(
+          color: themeColor,
+          onRefresh: () => appProvider.fetchAllDataFromSupabase(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
+            child: isAdminMode
+                ? _buildAdminDashboard(appProvider, themeColor)
+                : _buildStudentDashboard(appProvider, themeColor),
+          ),
         ),
       ),
     );
@@ -471,7 +476,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          child: ListView.separated(
+          child: provider.allUsers.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Center(
+                    child: Text(
+                      'No registered users found in Supabase yet.',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                  ),
+                )
+              : ListView.separated(
             padding: const EdgeInsets.all(10),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -650,7 +665,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ==========================================
   Widget _buildStudentDashboard(AppProvider provider, Color themeColor) {
     final user = provider.currentUser;
-    final myRoom = user?.room ?? '204B';
+    final myRoom = (user != null && user.room.isNotEmpty) ? user.room : 'Unassigned';
     final myComplaints = provider.myComplaints;
     final pendingCount = myComplaints.where((c) => c.status == 'PENDING').length;
     final resolvedCount = myComplaints.where((c) => c.status == 'RESOLVED').length;

@@ -331,24 +331,34 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
             // Payment List
             Expanded(
-              child: displayPayments.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.line),
-                          SizedBox(height: 8),
-                          Text(
-                            'No payment receipts found',
-                            style: TextStyle(fontSize: 13, color: AppColors.muted),
+              child: RefreshIndicator(
+                color: themeColor,
+                onRefresh: () => appProvider.fetchPayments(),
+                child: displayPayments.isEmpty
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: 300,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.line),
+                                SizedBox(height: 8),
+                                Text(
+                                  'No payment receipts found',
+                                  style: TextStyle(fontSize: 13, color: AppColors.muted),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                      itemCount: displayPayments.length,
-                      itemBuilder: (context, index) {
+                        ),
+                      )
+                    : ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                        itemCount: displayPayments.length,
+                        itemBuilder: (context, index) {
                         final item = displayPayments[index];
                         final isPaid = item.isPaid;
 
@@ -476,6 +486,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         );
                       },
                     ),
+              ),
             ),
           ],
         ),

@@ -1,23 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../backend/backend.dart';
 import '../models/models.dart';
 import '../ui/theme/app_theme.dart';
 
 class AppProvider extends ChangeNotifier {
+  final AuthService _authService = AuthService();
+  final DatabaseService _dbService = DatabaseService();
+
   AppUser? _currentUser;
   Color _themeColor = AppColors.blue;
+  bool _isLoadingData = false;
 
-  // Preset Theme Colors
-  static const List<Map<String, dynamic>> themePresets = [
-    {'name': 'Ocean Blue', 'color': Color(0xFF0868DF)},
-    {'name': 'Royal Indigo', 'color': Color(0xFF4F46E5)},
-    {'name': 'Emerald Green', 'color': Color(0xFF059669)},
-    {'name': 'Crimson Red', 'color': Color(0xFFDC2626)},
-    {'name': 'Midnight Purple', 'color': Color(0xFF7C3AED)},
-    {'name': 'Sunset Amber', 'color': Color(0xFFEA580C)},
-  ];
-
-  // 1. Registered Users (For Login, Role Checking & Admin Permissions)
-  final List<AppUser> _users = [
+  // Preset Demo Accounts Fallback
+  static final List<AppUser> _demoUsers = [
     AppUser(
       id: 'admin_1',
       name: 'Hostel Administrator',
@@ -90,311 +86,302 @@ class AppProvider extends ChangeNotifier {
     ),
   ];
 
-  // 2. Students Roster
-  final List<StudentItem> _students = [
-    StudentItem(
-      id: '1',
-      name: 'Md. Masud Rana',
-      studentId: '241071031',
-      room: '204B',
-      phone: '01712345678',
-      department: 'CSE (Computer Science)',
-      joinedDate: 'Jan 15, 2024',
-    ),
-    StudentItem(
-      id: '2',
-      name: 'Jonaki Akter',
-      studentId: '241071032',
-      room: '301A',
-      phone: '01812345672',
-      department: 'BBA (Management)',
-      joinedDate: 'Feb 10, 2024',
-    ),
-    StudentItem(
-      id: '3',
-      name: 'Rakib Hasan',
-      studentId: '241071035',
-      room: '105C',
-      phone: '01912345673',
-      department: 'EEE (Electrical)',
-      joinedDate: 'Mar 01, 2024',
-    ),
-    StudentItem(
-      id: '4',
-      name: 'Sadia Islam',
-      studentId: '241071037',
-      room: '202A',
-      phone: '01612345674',
-      department: 'Pharmacy',
-      joinedDate: 'Mar 15, 2024',
-    ),
+  // Real Database Collections
+  final List<AppUser> _users = [];
+  final List<StudentItem> _students = [];
+  final List<StaffMember> _staff = [];
+  final List<ComplaintItem> _complaints = [];
+  final List<PaymentItem> _payments = [];
+
+  // Preset Theme Colors
+  static const List<Map<String, dynamic>> themePresets = [
+    {'name': 'Ocean Blue', 'color': Color(0xFF0868DF)},
+    {'name': 'Royal Indigo', 'color': Color(0xFF4F46E5)},
+    {'name': 'Emerald Green', 'color': Color(0xFF059669)},
+    {'name': 'Crimson Red', 'color': Color(0xFFDC2626)},
+    {'name': 'Midnight Purple', 'color': Color(0xFF7C3AED)},
+    {'name': 'Sunset Amber', 'color': Color(0xFFEA580C)},
   ];
 
-  // 3. Staff Members
-  final List<StaffMember> _staff = [
-    StaffMember(
-      id: '1',
-      name: 'Kamal Hossain',
-      role: 'Warden',
-      shift: 'Morning (7 AM–3 PM)',
-      salary: '৳45,000/mo',
-      phone: '01712345671',
-    ),
-    StaffMember(
-      id: '2',
-      name: 'Salam Mia',
-      role: 'Security Guard',
-      shift: 'Night (8 PM–6 AM)',
-      salary: '৳32,000/mo',
-      phone: '01812345672',
-    ),
-    StaffMember(
-      id: '3',
-      name: 'Rafiq Uddin',
-      role: 'Cleaner',
-      shift: 'Day (8 AM–4 PM)',
-      salary: '৳28,000/mo',
-      phone: '01912345673',
-    ),
-    StaffMember(
-      id: '4',
-      name: 'Jahangir Alam',
-      role: 'Chief Cook',
-      shift: 'Split (6 AM–2 PM, 6 PM–9 PM)',
-      salary: '৳35,000/mo',
-      phone: '01612345674',
-    ),
-  ];
+  AppProvider() {
+    _initSupabaseSession();
+    _authService.ensureAdminAccountExists();
+  }
 
-  // 4. Complaints
-  final List<ComplaintItem> _complaints = [
-    ComplaintItem(
-      id: '1',
-      ticketNo: 'Ticket #CMP-104',
-      userId: 'user_2',
-      studentName: 'Jonaki Akter',
-      room: 'Room 304',
-      category: 'Plumbing',
-      description: 'Water leakage in bathroom pipe',
-      date: 'Apr 12, 2025',
-      status: 'PENDING',
-    ),
-    ComplaintItem(
-      id: '2',
-      ticketNo: 'Ticket #CMP-099',
-      userId: 'user_3',
-      studentName: 'Tanvir Ahmed',
-      room: 'Room 102',
-      category: 'Electrical',
-      description: 'Corridor tube light replaced',
-      date: 'Apr 10, 2025',
-      status: 'RESOLVED',
-    ),
-    ComplaintItem(
-      id: '3',
-      ticketNo: 'Ticket #CMP-095',
-      userId: 'user_1',
-      studentName: 'Md. Masud Rana',
-      room: 'Room 204B',
-      category: 'Appliances',
-      description: 'Ceiling fan making squeaking noise',
-      date: 'Apr 06, 2025',
-      status: 'RESOLVED',
-    ),
-  ];
+  bool _isDemoUser(String email) {
+    return _demoUsers.any((u) => u.email.toLowerCase() == email.trim().toLowerCase());
+  }
 
-  // 5. Payments
-  final List<PaymentItem> _payments = [
-    PaymentItem(
-      id: '1',
-      receiptNo: 'RCP-9012',
-      studentName: 'Md. Masud Rana',
-      room: 'Room 204B',
-      amount: 3000.0,
-      date: 'Apr 10, 2025',
-      isPaid: true,
-      month: 'April 2025',
-      method: 'bKash',
-    ),
-    PaymentItem(
-      id: '2',
-      receiptNo: 'RCP-9013',
-      studentName: 'Jonaki Akter',
-      room: 'Room 301A',
-      amount: 3000.0,
-      date: 'Apr 08, 2025',
-      isPaid: false,
-      month: 'April 2025',
-      method: 'Nagad',
-    ),
-    PaymentItem(
-      id: '3',
-      receiptNo: 'RCP-9014',
-      studentName: 'Rakib Hasan',
-      room: 'Room 105C',
-      amount: 3000.0,
-      date: 'Apr 05, 2025',
-      isPaid: true,
-      month: 'April 2025',
-      method: 'Bank Transfer',
-    ),
-    PaymentItem(
-      id: '4',
-      receiptNo: 'RCP-9015',
-      studentName: 'Sadia Islam',
-      room: 'Room 202A',
-      amount: 3000.0,
-      date: 'Apr 02, 2025',
-      isPaid: false,
-      month: 'April 2025',
-      method: 'Cash',
-    ),
-  ];
+  // -------------------------------------------------------------
+  // INITIALIZATION & SESSION MANAGEMENT
+  // -------------------------------------------------------------
+  void _initSupabaseSession() {
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        _loadUserAndFetchData(user);
+      }
 
-  // Getters
+      _authService.onAuthStateChange.listen((data) {
+        final AuthChangeEvent event = data.event;
+        final Session? session = data.session;
+
+        if (event == AuthChangeEvent.signedIn && session != null) {
+          _loadUserAndFetchData(session.user);
+        } else if (event == AuthChangeEvent.signedOut) {
+          // Do not clear local session if logged in as a demo user
+          if (_currentUser != null && !_isDemoUser(_currentUser!.email)) {
+            _currentUser = null;
+            _clearLocalData();
+            notifyListeners();
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint('Notice during Supabase session initialization: $e');
+    }
+  }
+
+  Future<void> _loadUserAndFetchData(User user) async {
+    _currentUser = await _authService.fetchUserProfile(user);
+    notifyListeners();
+    await fetchAllDataFromSupabase();
+  }
+
+  void _clearLocalData() {
+    _users.clear();
+    _students.clear();
+    _staff.clear();
+    _complaints.clear();
+    _payments.clear();
+  }
+
+  // -------------------------------------------------------------
+  // GETTERS
+  // -------------------------------------------------------------
   AppUser? get currentUser => _currentUser;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
   Color get themeColor => _themeColor;
-  List<AppUser> get allUsers => List.unmodifiable(_users);
+  bool get isLoadingData => _isLoadingData;
+
+  List<AppUser> get allUsers => List.unmodifiable(_users.isNotEmpty ? _users : _demoUsers);
   List<StudentItem> get students => List.unmodifiable(_students);
   List<StaffMember> get staff => List.unmodifiable(_staff);
   List<ComplaintItem> get complaints => List.unmodifiable(_complaints);
   List<PaymentItem> get payments => List.unmodifiable(_payments);
 
-  // Filtered Complaints for current student
+  // Filtered Complaints for current student resident
   List<ComplaintItem> get myComplaints {
     if (_currentUser == null) return [];
     return _complaints.where((c) {
       return c.userId == _currentUser!.id ||
-          c.studentName.toLowerCase() == _currentUser!.name.toLowerCase() ||
-          c.room.toLowerCase() == _currentUser!.room.toLowerCase();
+          (c.studentName.isNotEmpty &&
+              c.studentName.toLowerCase() == _currentUser!.name.toLowerCase()) ||
+          (c.room.isNotEmpty &&
+              c.room.toLowerCase() == _currentUser!.room.toLowerCase());
     }).toList();
   }
 
-  // Filtered Payments for current student
+  // Filtered Payments for current student resident
   List<PaymentItem> get myPayments {
     if (_currentUser == null) return [];
     return _payments.where((p) {
-      return p.studentName.toLowerCase() == _currentUser!.name.toLowerCase() ||
-          p.room.toLowerCase() == _currentUser!.room.toLowerCase();
+      return (p.studentName.isNotEmpty &&
+              p.studentName.toLowerCase() == _currentUser!.name.toLowerCase()) ||
+          (p.room.isNotEmpty &&
+              p.room.toLowerCase() == _currentUser!.room.toLowerCase());
     }).toList();
   }
 
-  // Theme Setter
+  // -------------------------------------------------------------
+  // THEME COLOR SETTER
+  // -------------------------------------------------------------
   void setThemeColor(Color color) {
     _themeColor = color;
     notifyListeners();
   }
 
-  // Login Functionality with exact email and password checking
-  (bool, String) login(String email, String password) {
-    final cleanEmail = email.trim().toLowerCase();
-    final cleanPass = password.trim();
-
-    if (cleanEmail.isEmpty) {
-      return (false, 'Please enter your email address.');
-    }
-    if (cleanPass.isEmpty) {
-      return (false, 'Please enter your password.');
-    }
-
-    // Check existing registered users
-    final index = _users.indexWhere((u) => u.email.toLowerCase() == cleanEmail);
-    if (index == -1) {
-      return (false, 'No account found with this email. Please Sign Up first.');
-    }
-
-    final user = _users[index];
-    final isPasswordValid = (user.password == cleanPass) ||
-        (user.isAdmin && (cleanPass == 'admin123' || cleanPass == 'password123')) ||
-        (!user.isAdmin && (cleanPass == 'user123' || cleanPass == 'password123'));
-
-    if (!isPasswordValid) {
-      return (false, 'Incorrect password. Please enter the password you used during signup.');
-    }
-
-    _currentUser = user;
+  // -------------------------------------------------------------
+  // DATA FETCHING FROM SUPABASE POSTGRESQL TABLES
+  // -------------------------------------------------------------
+  Future<void> fetchAllDataFromSupabase() async {
+    _isLoadingData = true;
     notifyListeners();
-    return (true, 'Success');
-  }
 
-  // Sign Up Functionality
-  bool signUp({
-    required String name,
-    required String email,
-    required String phone,
-    required String studentId,
-    required String role, // 'admin' or 'student'
-    required String password,
-    String department = 'CSE',
-    String room = '101A',
-  }) {
-    final cleanEmail = email.trim().toLowerCase();
-    final exists = _users.any((u) => u.email.toLowerCase() == cleanEmail);
-    if (exists) {
-      return false;
-    }
-
-    final newUser = AppUser(
-      id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-      name: name.trim(),
-      email: cleanEmail,
-      phone: phone.trim(),
-      studentId: studentId.trim(),
-      role: role.toLowerCase(),
-      department: department,
-      room: room,
-      password: password.trim(),
-      joinedDate: 'Apr 2025',
-    );
-
-    _users.add(newUser);
-
-    if (newUser.role == 'student') {
-      _students.add(StudentItem(
-        id: newUser.id,
-        name: newUser.name,
-        studentId: newUser.studentId,
-        room: newUser.room,
-        phone: newUser.phone,
-        department: newUser.department,
-      ));
-    }
-
-    _currentUser = newUser;
-    notifyListeners();
-    return true;
-  }
-
-  // Admin Permission Toggle: Give or revoke Admin permission
-  void toggleAdminPermission(String userId) {
-    final index = _users.indexWhere((u) => u.id == userId);
-    if (index != -1) {
-      final user = _users[index];
-      if (user.role.toLowerCase() == 'admin') {
-        user.role = 'student';
-      } else {
-        user.role = 'admin';
-      }
-
-      // If the current logged-in user's role changed, update instance
-      if (_currentUser?.id == userId) {
-        _currentUser = user;
-      }
+    try {
+      await Future.wait([
+        fetchProfiles(),
+        fetchStudents(),
+        fetchStaff(),
+        fetchComplaints(),
+        fetchPayments(),
+      ]);
+    } catch (e) {
+      debugPrint('Notice fetching Supabase database tables: $e');
+    } finally {
+      _isLoadingData = false;
       notifyListeners();
     }
   }
 
-  // User Profile Update
-  void updateCurrentUserProfile({
+  Future<void> fetchProfiles() async {
+    final list = await _dbService.fetchAllProfiles();
+    _users.clear();
+    _users.addAll(list);
+    notifyListeners();
+  }
+
+  Future<void> fetchStudents() async {
+    final list = await _dbService.fetchStudents();
+    _students.clear();
+    _students.addAll(list);
+    notifyListeners();
+  }
+
+  Future<void> fetchStaff() async {
+    final list = await _dbService.fetchStaff();
+    _staff.clear();
+    _staff.addAll(list);
+    notifyListeners();
+  }
+
+  Future<void> fetchComplaints() async {
+    final list = await _dbService.fetchComplaints();
+    _complaints.clear();
+    _complaints.addAll(list);
+    notifyListeners();
+  }
+
+  Future<void> fetchPayments() async {
+    final list = await _dbService.fetchPayments();
+    _payments.clear();
+    _payments.addAll(list);
+    notifyListeners();
+  }
+
+  // -------------------------------------------------------------
+  // AUTHENTICATION OPERATIONS
+  // -------------------------------------------------------------
+  Future<void> _tryQuietSupabaseAuth(String cleanEmail, String cleanPass) async {
+    try {
+      final (success, _) = await _authService.signInWithPassword(cleanEmail, cleanPass);
+      if (!success) {
+        final mockUser = _demoUsers.firstWhere((u) => u.email.toLowerCase() == cleanEmail);
+        await _authService.signUp(
+          name: mockUser.name,
+          email: cleanEmail,
+          password: cleanPass,
+          phone: mockUser.phone,
+          studentId: mockUser.studentId,
+          role: mockUser.role,
+          department: mockUser.department,
+          room: mockUser.room,
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<(bool, String)> login(String email, String password) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPass = password.trim();
+
+    if (cleanEmail.isEmpty || cleanPass.isEmpty) {
+      return (false, 'Please enter both email and password.');
+    }
+
+    // 1. Check Demo Accounts First for instant & guaranteed login
+    final mockIndex = _demoUsers.indexWhere((u) => u.email.toLowerCase() == cleanEmail);
+    if (mockIndex != -1) {
+      final mockUser = _demoUsers[mockIndex];
+      final isPasswordValid = (mockUser.password == cleanPass) ||
+          (mockUser.isAdmin && (cleanPass == 'admin123' || cleanPass == 'password123')) ||
+          (!mockUser.isAdmin && (cleanPass == 'user123' || cleanPass == 'password123'));
+
+      if (isPasswordValid) {
+        _currentUser = mockUser;
+        notifyListeners();
+        _tryQuietSupabaseAuth(cleanEmail, cleanPass);
+        await fetchAllDataFromSupabase();
+        return (true, 'Success');
+      } else {
+        return (false, 'Incorrect password. Please use password123.');
+      }
+    }
+
+    // 2. Try Real Supabase Auth for new/registered accounts
+    final (success, message) = await _authService.signInWithPassword(cleanEmail, cleanPass);
+
+    if (success) {
+      final user = _authService.currentUser;
+      if (user != null) {
+        await _loadUserAndFetchData(user);
+      }
+      return (true, 'Success');
+    }
+
+    return (false, message);
+  }
+
+  Future<(bool, String)> signUp({
+    required String name,
+    required String email,
+    required String phone,
+    required String studentId,
+    required String role,
+    required String password,
+    String department = 'CSE',
+    String room = '101A',
+  }) async {
+    final (success, message) = await _authService.signUp(
+      name: name,
+      email: email,
+      password: password,
+      phone: phone,
+      studentId: studentId,
+      role: role,
+      department: department,
+      room: room,
+    );
+
+    if (success && _authService.currentUser != null) {
+      await _loadUserAndFetchData(_authService.currentUser!);
+    }
+
+    return (success, message);
+  }
+
+  Future<(bool, String)> signInWithGoogle() async {
+    return await _authService.signInWithGoogle();
+  }
+
+  Future<(bool, String)> resetPassword(String email) async {
+    return await _authService.resetPassword(email);
+  }
+
+  Future<bool> changePassword(String newPassword) async {
+    return await _authService.changePassword(newPassword);
+  }
+
+  Future<void> logout() async {
+    await _authService.signOut();
+    _currentUser = null;
+    _clearLocalData();
+    notifyListeners();
+  }
+
+  // -------------------------------------------------------------
+  // USER PROFILE & ADMIN PERMISSIONS
+  // -------------------------------------------------------------
+  Future<void> updateCurrentUserProfile({
     required String name,
     required String phone,
     required String department,
     required String room,
     required String address,
     required String studentId,
-  }) {
+  }) async {
     if (_currentUser == null) return;
+
     _currentUser!.name = name;
     _currentUser!.phone = phone;
     _currentUser!.department = department;
@@ -402,92 +389,96 @@ class AppProvider extends ChangeNotifier {
     _currentUser!.address = address;
     _currentUser!.studentId = studentId;
 
-    // Synchronize in users list
     final uIndex = _users.indexWhere((u) => u.id == _currentUser!.id);
     if (uIndex != -1) {
       _users[uIndex] = _currentUser!;
     }
 
-    // Synchronize in students roster if present
-    final sIndex = _students.indexWhere((s) => s.id == _currentUser!.id || s.studentId == _currentUser!.studentId);
-    if (sIndex != -1) {
-      _students[sIndex].name = name;
-      _students[sIndex].room = room;
-      _students[sIndex].phone = phone;
-      _students[sIndex].department = department;
-      _students[sIndex].studentId = studentId;
-    }
-
     notifyListeners();
+
+    await _authService.updateProfile(
+      userId: _currentUser!.id,
+      name: name,
+      phone: phone,
+      department: department,
+      room: room,
+      address: address,
+      studentId: studentId,
+    );
   }
 
-  // Change Password
-  void changePassword(String newPassword) {
-    if (_currentUser == null) return;
-    _currentUser!.password = newPassword;
-    final uIndex = _users.indexWhere((u) => u.id == _currentUser!.id);
-    if (uIndex != -1) {
-      _users[uIndex].password = newPassword;
-    }
-    notifyListeners();
-  }
+  Future<void> toggleAdminPermission(String userId) async {
+    final index = _users.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      final user = _users[index];
+      final newRole = (user.role.toLowerCase() == 'admin') ? 'student' : 'admin';
+      user.role = newRole;
 
-  // Logout
-  void logout() {
-    _currentUser = null;
-    notifyListeners();
+      if (_currentUser?.id == userId) {
+        _currentUser!.role = newRole;
+      }
+
+      notifyListeners();
+      await _dbService.updateUserRole(userId, newRole);
+    }
   }
 
   // -------------------------------------------------------------
-  // Student CRUD Operations (Admin)
+  // STUDENTS CRUD OPERATIONS (Real Supabase Backend)
   // -------------------------------------------------------------
-  void addStudent(StudentItem student) {
-    _students.add(student);
+  Future<void> addStudent(StudentItem student) async {
+    _students.insert(0, student);
     notifyListeners();
+    await _dbService.insertStudent(student);
   }
 
-  void updateStudent(StudentItem updatedStudent) {
+  Future<void> updateStudent(StudentItem updatedStudent) async {
     final index = _students.indexWhere((s) => s.id == updatedStudent.id);
     if (index != -1) {
       _students[index] = updatedStudent;
       notifyListeners();
     }
+    await _dbService.updateStudent(updatedStudent);
   }
 
-  void deleteStudent(String id) {
+  Future<void> deleteStudent(String id) async {
     _students.removeWhere((s) => s.id == id);
     notifyListeners();
+    await _dbService.deleteStudent(id);
   }
 
   // -------------------------------------------------------------
-  // Staff CRUD Operations (Admin)
+  // STAFF CRUD OPERATIONS (Real Supabase Backend)
   // -------------------------------------------------------------
-  void addStaff(StaffMember member) {
-    _staff.add(member);
+  Future<void> addStaff(StaffMember member) async {
+    _staff.insert(0, member);
     notifyListeners();
+    await _dbService.insertStaff(member);
   }
 
-  void updateStaff(StaffMember updatedMember) {
+  Future<void> updateStaff(StaffMember updatedMember) async {
     final index = _staff.indexWhere((s) => s.id == updatedMember.id);
     if (index != -1) {
       _staff[index] = updatedMember;
       notifyListeners();
     }
+    await _dbService.updateStaff(updatedMember);
   }
 
-  void deleteStaff(String id) {
+  Future<void> deleteStaff(String id) async {
     _staff.removeWhere((s) => s.id == id);
     notifyListeners();
+    await _dbService.deleteStaff(id);
   }
 
   // -------------------------------------------------------------
-  // Complaint Operations (User can add; Admin can resolve/reopen)
+  // COMPLAINTS CRUD OPERATIONS (Real Supabase Backend)
   // -------------------------------------------------------------
-  void addComplaint({
+  Future<void> addComplaint({
     required String description,
     required String category,
     required String room,
-  }) {
+  }) async {
     final studentName = _currentUser?.name ?? 'Resident';
     final userId = _currentUser?.id ?? '';
     final newComplaint = ComplaintItem(
@@ -495,48 +486,57 @@ class AppProvider extends ChangeNotifier {
       ticketNo: 'Ticket #CMP-${100 + _complaints.length + 1}',
       userId: userId,
       studentName: studentName,
-      room: room.isNotEmpty ? room : (_currentUser?.room ?? 'Room 204B'),
+      room: room.isNotEmpty ? room : (_currentUser?.room ?? 'Room 101A'),
       category: category,
       description: description,
       date: 'Just now',
       status: 'PENDING',
     );
+
     _complaints.insert(0, newComplaint);
     notifyListeners();
+    await _dbService.insertComplaint(newComplaint);
   }
 
-  void toggleComplaintStatus(String id) {
+  Future<void> toggleComplaintStatus(String id) async {
     final index = _complaints.indexWhere((c) => c.id == id);
     if (index != -1) {
       final current = _complaints[index];
-      current.status = (current.status == 'PENDING') ? 'RESOLVED' : 'PENDING';
+      final newStatus = (current.status == 'PENDING') ? 'RESOLVED' : 'PENDING';
+      current.status = newStatus;
       notifyListeners();
+      await _dbService.updateComplaintStatus(id, newStatus);
     }
   }
 
-  void deleteComplaint(String id) {
+  Future<void> deleteComplaint(String id) async {
     _complaints.removeWhere((c) => c.id == id);
     notifyListeners();
+    await _dbService.deleteComplaint(id);
   }
 
   // -------------------------------------------------------------
-  // Payment Operations
+  // PAYMENTS CRUD OPERATIONS (Real Supabase Backend)
   // -------------------------------------------------------------
-  void addPayment(PaymentItem payment) {
+  Future<void> addPayment(PaymentItem payment) async {
     _payments.insert(0, payment);
     notifyListeners();
+    await _dbService.insertPayment(payment);
   }
 
-  void togglePaymentStatus(String id) {
+  Future<void> togglePaymentStatus(String id) async {
     final index = _payments.indexWhere((p) => p.id == id);
     if (index != -1) {
-      _payments[index].isPaid = !_payments[index].isPaid;
+      final newStatus = !_payments[index].isPaid;
+      _payments[index].isPaid = newStatus;
       notifyListeners();
+      await _dbService.updatePaymentStatus(id, newStatus);
     }
   }
 
-  void deletePayment(String id) {
+  Future<void> deletePayment(String id) async {
     _payments.removeWhere((p) => p.id == id);
     notifyListeners();
+    await _dbService.deletePayment(id);
   }
 }

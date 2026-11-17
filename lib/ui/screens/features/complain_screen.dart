@@ -267,24 +267,34 @@ class _ComplainScreenState extends State<ComplainScreen> {
             ),
 
             Expanded(
-              child: displayComplaints.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.check_circle_outline_rounded, size: 48, color: AppColors.line),
-                          const SizedBox(height: 8),
-                          Text(
-                            isAdminMode ? 'No complaints found' : 'You have no complaints in this category',
-                            style: const TextStyle(fontSize: 13, color: AppColors.muted),
+              child: RefreshIndicator(
+                color: themeColor,
+                onRefresh: () => appProvider.fetchComplaints(),
+                child: displayComplaints.isEmpty
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: 300,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.check_circle_outline_rounded, size: 48, color: AppColors.line),
+                                const SizedBox(height: 8),
+                                Text(
+                                  isAdminMode ? 'No complaints found' : 'You have no complaints in this category',
+                                  style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 6.0),
-                      itemCount: displayComplaints.length,
-                      itemBuilder: (context, index) {
+                        ),
+                      )
+                    : ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 6.0),
+                        itemCount: displayComplaints.length,
+                        itemBuilder: (context, index) {
                         final item = displayComplaints[index];
                         final isPending = item.status == 'PENDING';
 
@@ -434,6 +444,7 @@ class _ComplainScreenState extends State<ComplainScreen> {
                         );
                       },
                     ),
+              ),
             ),
 
             // Bottom Add Complaint Bar for Students

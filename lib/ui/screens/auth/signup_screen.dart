@@ -22,6 +22,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -33,6 +35,24 @@ class _SignupScreenState extends State<SignupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isGoogleLoading = true);
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final (success, message) = await appProvider.signInWithGoogle();
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
+
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google Sign-In: $message'),
+          backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   Widget _buildInputField({
@@ -70,7 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  void _handleSignUp() {
+  Future<void> _handleSignUp() async {
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
@@ -89,6 +109,16 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be at least 6 characters long'),
+          backgroundColor: AppColors.red,
+        ),
+      );
+      return;
+    }
+
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -100,9 +130,11 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     const role = 'student';
+    setState(() => _isLoading = true);
+
     final appProvider = Provider.of<AppProvider>(context, listen: false);
 
-    final success = appProvider.signUp(
+    final (success, message) = await appProvider.signUp(
       name: name,
       email: email,
       phone: phone.isNotEmpty ? phone : '01700000000',
@@ -112,31 +144,68 @@ class _SignupScreenState extends State<SignupScreen> {
       room: room.isNotEmpty ? room : '101A',
     );
 
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email is already registered! Please log in.'),
+        SnackBar(
+          content: Text(message),
           backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Account registered successfully!'),
-        backgroundColor: AppColors.green,
-      ),
-    );
+    // Check if email confirmation is needed
+    if (message.contains('confirmation email') || message.contains('verify')) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Verify Your Gmail',
+            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.navy),
+          ),
+          content: Text(
+            'A verification email was sent to $email.\n\nPlease open your Gmail inbox (or spam) and click the confirmation link to activate your account, then log in.',
+            style: const TextStyle(fontSize: 13, color: AppColors.text),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.blue,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pop(context); // back to login
+              },
+              child: const Text('Go to Login'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account registered successfully!'),
+          backgroundColor: AppColors.green,
+        ),
+      );
 
-    // Direct navigate to Student Dashboard
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const DashboardScreen(isAdmin: false),
-      ),
-      (route) => false,
-    );
+      // Direct navigate to Student Dashboard
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const DashboardScreen(isAdmin: false),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -259,12 +328,69 @@ class _SignupScreenState extends State<SignupScreen> {
                         borderRadius: BorderRadius.circular(11),
                       ),
                     ),
-                    onPressed: _handleSignUp,
-                    child: const Text(
-                      'Sign Up & Start',
+                    onPressed: _isLoading ? null : _handleSignUp,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Sign Up & Start',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // OR Divider
+                Row(
+                  children: const [
+                    Expanded(child: Divider(color: AppColors.line)),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.line)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Google Sign Up Button
+                SizedBox(
+                  height: 46,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.navy,
+                      side: const BorderSide(color: AppColors.line),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                    ),
+                    onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
+                    icon: _isGoogleLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.navy),
+                          )
+                        : const Icon(Icons.g_mobiledata_rounded, size: 26, color: Colors.redAccent),
+                    label: const Text(
+                      'Sign Up with Google',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.navy,
                       ),
                     ),
                   ),

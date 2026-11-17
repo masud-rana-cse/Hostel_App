@@ -18,6 +18,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = true;
+  bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -26,7 +28,25 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isGoogleLoading = true);
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final (success, message) = await appProvider.signInWithGoogle();
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
+
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google Sign-In: $message'),
+          backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -50,25 +70,33 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    setState(() => _isLoading = true);
+
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    final (success, message) = appProvider.login(email, password);
+    final (success, message) = await appProvider.login(email, password);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
           backgroundColor: AppColors.red,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 4),
         ),
       );
       return;
     }
 
-    final user = appProvider.currentUser!;
+    final user = appProvider.currentUser;
+    final isAdmin = user?.isAdmin ?? false;
+    final userName = user?.name ?? 'User';
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Welcome, ${user.name}! (${user.isAdmin ? "Admin" : "Student"})',
+          'Welcome, $userName! (${isAdmin ? "Admin" : "Student"})',
         ),
         backgroundColor: AppColors.green,
         duration: const Duration(seconds: 2),
@@ -78,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => DashboardScreen(isAdmin: user.isAdmin),
+        builder: (context) => DashboardScreen(isAdmin: isAdmin),
       ),
     );
   }
@@ -163,12 +191,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(11),
                     ),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    final resetEmail = resetController.text.trim();
+                    if (resetEmail.isEmpty) return;
                     Navigator.pop(context);
+                    final appProvider = Provider.of<AppProvider>(context, listen: false);
+                    final (success, msg) = await appProvider.resetPassword(resetEmail);
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Password reset instructions sent to your email'),
-                        backgroundColor: AppColors.green,
+                      SnackBar(
+                        content: Text(msg),
+                        backgroundColor: success ? AppColors.green : AppColors.red,
                       ),
                     );
                   },
@@ -383,12 +416,69 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: _handleLogin,
-                    child: const Text(
-                      'Sign In',
+                    onPressed: _isLoading ? null : _handleLogin,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // OR Divider
+                Row(
+                  children: const [
+                    Expanded(child: Divider(color: AppColors.line)),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.line)),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // Google Sign In Button
+                SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.navy,
+                      side: const BorderSide(color: AppColors.line),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
+                    icon: _isGoogleLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.navy),
+                          )
+                        : const Icon(Icons.g_mobiledata_rounded, size: 28, color: Colors.redAccent),
+                    label: const Text(
+                      'Continue with Google',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.navy,
                       ),
                     ),
                   ),

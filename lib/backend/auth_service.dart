@@ -1,0 +1,252 @@
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/models.dart';
+
+/// Dedicated Backend Authentication Service for Supabase Auth
+class AuthService {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  User? get currentUser => _supabase.auth.currentUser;
+  Session? get currentSession => _supabase.auth.currentSession;
+  Stream<AuthState> get onAuthStateChange => _supabase.auth.onAuthStateChange;
+
+  /// Auto-creates 'admin@gmail.com' in Supabase Auth if not already registered
+  Future<void> ensureAdminAccountExists() async {
+    try {
+      final res = await _supabase.auth.signUp(
+        email: 'admin@gmail.com',
+        password: 'password123',
+        data: {
+          'name': 'Hostel Administrator',
+          'phone': '01700000000',
+          'student_id': 'ADM-001',
+          'role': 'admin',
+          'department': 'Hostel Administration',
+          'room': 'Office 101',
+        },
+      );
+      if (res.user != null) {
+        try {
+          await _supabase.from('profiles').upsert({
+            'id': res.user!.id,
+            'name': 'Hostel Administrator',
+            'email': 'admin@gmail.com',
+            'phone': '01700000000',
+            'student_id': 'ADM-001',
+            'role': 'admin',
+            'department': 'Hostel Administration',
+            'room': 'Office 101',
+          });
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('Admin account auto-seed notice: $e');
+    }
+  }
+
+  /// Sign Up with Email and Password + Store User Profile in Supabase
+  Future<(bool, String)> signUp({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    required String studentId,
+    required String role,
+    String department = 'CSE',
+    String room = '101A',
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPass = password.trim();
+
+    if (cleanEmail.isEmpty || cleanPass.isEmpty || name.trim().isEmpty) {
+      return (false, 'All required fields must be filled.');
+    }
+
+    try {
+      final AuthResponse res = await _supabase.auth.signUp(
+        email: cleanEmail,
+        password: cleanPass,
+        data: {
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'student_id': studentId.trim(),
+          'role': role.toLowerCase(),
+          'department': department,
+          'room': room,
+        },
+      );
+
+      final user = res.user;
+      if (user == null) {
+        return (false, 'Sign up failed. Please check your credentials.');
+      }
+
+      // Upsert profile in 'profiles' table
+      try {
+        await _supabase.from('profiles').upsert({
+          'id': user.id,
+          'name': name.trim(),
+          'email': cleanEmail,
+          'phone': phone.trim(),
+          'student_id': studentId.trim(),
+          'role': role.toLowerCase(),
+          'department': department,
+          'room': room,
+        });
+      } catch (e) {
+        debugPrint('Notice saving to profiles table: $e');
+      }
+
+      if (res.session != null) {
+        return (true, 'Account created successfully!');
+      } else {
+        return (
+          true,
+          'Account created! A verification email has been sent to $cleanEmail. Please confirm your email before signing in.'
+        );
+      }
+    } on AuthException catch (e) {
+      return (false, e.message);
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  /// Sign In with Email and Password
+  Future<(bool, String)> signInWithPassword(String email, String password) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPass = password.trim();
+
+    if (cleanEmail.isEmpty || cleanPass.isEmpty) {
+      return (false, 'Please enter both email and password.');
+    }
+
+    try {
+      final AuthResponse res = await _supabase.auth.signInWithPassword(
+        email: cleanEmail,
+        password: cleanPass,
+      );
+
+      if (res.user != null) {
+        return (true, 'Success');
+      } else {
+        return (false, 'Failed to sign in. Please verify your credentials.');
+      }
+    } on AuthException catch (e) {
+      return (false, e.message);
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  /// Google OAuth Sign In
+  Future<(bool, String)> signInWithGoogle() async {
+    try {
+      await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'io.supabase.hostelapp://login-callback',
+      );
+      return (true, 'Success');
+    } on AuthException catch (e) {
+      return (false, e.message);
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  /// Load user profile from Supabase profiles table
+  Future<AppUser?> fetchUserProfile(User user) async {
+    try {
+      final data = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      return AppUser.fromSupabase(user, data);
+    } catch (e) {
+      debugPrint('Notice fetching profile from Supabase: $e');
+      return AppUser.fromSupabase(user, null);
+    }
+  }
+
+  /// Update current user profile details
+  Future<bool> updateProfile({
+    required String userId,
+    required String name,
+    required String phone,
+    required String department,
+    required String room,
+    required String address,
+    required String studentId,
+  }) async {
+    try {
+      // 1. Update user metadata in auth.users
+      await _supabase.auth.updateUser(
+        UserAttributes(
+          data: {
+            'name': name,
+            'phone': phone,
+            'department': department,
+            'room': room,
+            'student_id': studentId,
+          },
+        ),
+      );
+
+      // 2. Update profiles table
+      await _supabase.from('profiles').upsert({
+        'id': userId,
+        'name': name,
+        'phone': phone,
+        'department': department,
+        'room': room,
+        'student_id': studentId,
+        'address': address,
+      });
+
+      return true;
+    } catch (e) {
+      debugPrint('Error updating profile in Supabase: $e');
+      return false;
+    }
+  }
+
+  /// Change Password
+  Future<bool> changePassword(String newPassword) async {
+    try {
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword.trim()),
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Error changing password in Supabase: $e');
+      return false;
+    }
+  }
+
+  /// Reset Password via Email
+  Future<(bool, String)> resetPassword(String email) async {
+    final cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty) {
+      return (false, 'Please enter your email address.');
+    }
+    try {
+      await _supabase.auth.resetPasswordForEmail(cleanEmail);
+      return (true, 'Password reset instructions have been sent to $cleanEmail');
+    } on AuthException catch (e) {
+      return (false, e.message);
+    } catch (e) {
+      return (false, e.toString());
+    }
+  }
+
+  /// Sign Out
+  Future<void> signOut() async {
+    try {
+      await _supabase.auth.signOut();
+    } catch (e) {
+      debugPrint('Error during Supabase signOut: $e');
+    }
+  }
+}

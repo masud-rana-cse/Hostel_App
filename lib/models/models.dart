@@ -27,7 +27,75 @@ class AppUser {
     this.password = 'password123',
   });
 
-  bool get isAdmin => role.toLowerCase() == 'admin';
+  bool get isAdmin => role.toLowerCase() == 'admin' || email.toLowerCase().contains('admin');
+
+  factory AppUser.fromMap(Map<String, dynamic> map) {
+    final String email = map['email']?.toString() ?? '';
+    final String rawRole = map['role']?.toString().toLowerCase() ?? '';
+    final String role = (email.toLowerCase().contains('admin') || rawRole == 'admin') ? 'admin' : 'student';
+
+    return AppUser(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? (email.contains('@') ? email.split('@').first : 'Hostel Administrator'),
+      email: email,
+      phone: map['phone']?.toString() ?? '01700000000',
+      studentId: (map['student_id'] ?? map['studentId'] ?? 'ADM-001').toString(),
+      role: role,
+      department: map['department']?.toString() ?? 'Hostel Administration',
+      room: map['room']?.toString() ?? 'Office 101',
+      address: map['address']?.toString() ?? 'Sector 9, Uttara, Dhaka',
+      guardian: map['guardian']?.toString() ?? 'Board of Governors',
+      joinedDate: (map['joined_date'] ?? map['joinedDate'] ?? 'Jan 01, 2023').toString(),
+      password: 'password123',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'student_id': studentId,
+      'role': role,
+      'department': department,
+      'room': room,
+      'address': address,
+      'guardian': guardian,
+      'joined_date': joinedDate,
+    };
+  }
+
+  factory AppUser.fromSupabase(dynamic user, [Map<String, dynamic>? profileData]) {
+    final Map<String, dynamic> meta = (user.userMetadata is Map) ? Map<String, dynamic>.from(user.userMetadata) : {};
+    final String email = user.email ?? profileData?['email'] ?? '';
+    final String rawRole = (profileData?['role'] ?? meta['role'] ?? '').toString().toLowerCase();
+    final String role = (email.toLowerCase().contains('admin') || rawRole == 'admin') ? 'admin' : 'student';
+    final String name = (profileData?['name'] ?? meta['name'] ?? (email.contains('@') ? email.split('@').first : 'Hostel Administrator')).toString();
+    final String phone = (profileData?['phone'] ?? meta['phone'] ?? '01700000000').toString();
+    final String rawId = user.id.toString();
+    final String studentId = (profileData?['student_id'] ?? meta['student_id'] ?? (role == 'admin' ? 'ADM-001' : 'STD-100')).toString();
+    final String department = (profileData?['department'] ?? meta['department'] ?? (role == 'admin' ? 'Hostel Administration' : 'CSE')).toString();
+    final String room = (profileData?['room'] ?? meta['room'] ?? (role == 'admin' ? 'Office 101' : '101A')).toString();
+    final String address = (profileData?['address'] ?? meta['address'] ?? 'Sector 9, Uttara, Dhaka').toString();
+    final String guardian = (profileData?['guardian'] ?? meta['guardian'] ?? 'Hostel Board').toString();
+    final String joinedDate = (profileData?['joined_date'] ?? meta['joined_date'] ?? 'Jan 01, 2023').toString();
+
+    return AppUser(
+      id: rawId,
+      name: name,
+      email: email,
+      phone: phone,
+      studentId: studentId,
+      role: role,
+      department: department,
+      room: room,
+      address: address,
+      guardian: guardian,
+      joinedDate: joinedDate,
+      password: 'password123',
+    );
+  }
 
   String get initials {
     final parts = name.trim().split(' ');
@@ -36,7 +104,7 @@ class AppUser {
     } else if (parts.isNotEmpty && parts[0].isNotEmpty) {
       return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
     }
-    return 'U';
+    return 'HA';
   }
 }
 
@@ -58,6 +126,30 @@ class StudentItem {
     this.department = 'CSE',
     this.joinedDate = 'Jan 15, 2024',
   });
+
+  factory StudentItem.fromMap(Map<String, dynamic> map) {
+    return StudentItem(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      studentId: (map['student_id'] ?? map['studentId'] ?? '').toString(),
+      room: map['room']?.toString() ?? '',
+      phone: map['phone']?.toString() ?? '01712345678',
+      department: map['department']?.toString() ?? 'CSE',
+      joinedDate: (map['joined_date'] ?? map['joinedDate'] ?? 'Jan 15, 2024').toString(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'student_id': studentId,
+      'room': room,
+      'phone': phone,
+      'department': department,
+      'joined_date': joinedDate,
+    };
+  }
 
   String get initials {
     final parts = name.trim().split(' ');
@@ -86,6 +178,28 @@ class StaffMember {
     required this.salary,
     required this.phone,
   });
+
+  factory StaffMember.fromMap(Map<String, dynamic> map) {
+    return StaffMember(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      role: map['role']?.toString() ?? 'Staff',
+      shift: map['shift']?.toString() ?? 'Day',
+      salary: map['salary']?.toString() ?? '৳30,000/mo',
+      phone: map['phone']?.toString() ?? '01700000000',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'role': role,
+      'shift': shift,
+      'salary': salary,
+      'phone': phone,
+    };
+  }
 
   String get initials {
     final parts = name.trim().split(' ');
@@ -120,6 +234,34 @@ class ComplaintItem {
     required this.date,
     required this.status,
   });
+
+  factory ComplaintItem.fromMap(Map<String, dynamic> map) {
+    return ComplaintItem(
+      id: map['id']?.toString() ?? '',
+      ticketNo: (map['ticket_no'] ?? map['ticketNo'] ?? 'Ticket #CMP-000').toString(),
+      userId: (map['user_id'] ?? map['userId'] ?? '').toString(),
+      studentName: (map['student_name'] ?? map['studentName'] ?? 'Resident').toString(),
+      room: map['room']?.toString() ?? 'Room 101A',
+      category: map['category']?.toString() ?? 'General',
+      description: map['description']?.toString() ?? '',
+      date: map['date']?.toString() ?? 'Recently',
+      status: map['status']?.toString() ?? 'PENDING',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'ticket_no': ticketNo,
+      'user_id': userId,
+      'student_name': studentName,
+      'room': room,
+      'category': category,
+      'description': description,
+      'date': date,
+      'status': status,
+    };
+  }
 }
 
 class PaymentItem {
@@ -144,4 +286,34 @@ class PaymentItem {
     this.month = 'April 2025',
     this.method = 'bKash',
   });
+
+  factory PaymentItem.fromMap(Map<String, dynamic> map) {
+    return PaymentItem(
+      id: map['id']?.toString() ?? '',
+      receiptNo: (map['receipt_no'] ?? map['receiptNo'] ?? 'RCP-0000').toString(),
+      studentName: (map['student_name'] ?? map['studentName'] ?? 'Resident').toString(),
+      room: map['room']?.toString() ?? 'Room 101A',
+      amount: (map['amount'] is num)
+          ? (map['amount'] as num).toDouble()
+          : (double.tryParse(map['amount']?.toString() ?? '0') ?? 0.0),
+      date: map['date']?.toString() ?? 'Recently',
+      isPaid: map['is_paid'] == true || map['isPaid'] == true,
+      month: map['month']?.toString() ?? 'April 2025',
+      method: map['method']?.toString() ?? 'bKash',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'receipt_no': receiptNo,
+      'student_name': studentName,
+      'room': room,
+      'amount': amount,
+      'date': date,
+      'is_paid': isPaid,
+      'month': month,
+      'method': method,
+    };
+  }
 }

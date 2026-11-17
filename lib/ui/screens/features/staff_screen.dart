@@ -561,24 +561,34 @@ class _StaffScreenState extends State<StaffScreen> {
             ),
 
             Expanded(
-              child: filteredStaff.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.person_search_outlined, size: 48, color: AppColors.line),
-                          SizedBox(height: 8),
-                          Text(
-                            'No staff members found',
-                            style: TextStyle(fontSize: 13, color: AppColors.muted),
+              child: RefreshIndicator(
+                color: themeColor,
+                onRefresh: () => appProvider.fetchStaff(),
+                child: filteredStaff.isEmpty
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: 300,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.person_search_outlined, size: 48, color: AppColors.line),
+                                SizedBox(height: 8),
+                                Text(
+                                  'No staff members found',
+                                  style: TextStyle(fontSize: 13, color: AppColors.muted),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 4.0),
-                      itemCount: filteredStaff.length,
-                      itemBuilder: (context, index) {
+                        ),
+                      )
+                    : ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 4.0),
+                        itemCount: filteredStaff.length,
+                        itemBuilder: (context, index) {
                         final staff = filteredStaff[index];
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10.0),
@@ -722,6 +732,7 @@ class _StaffScreenState extends State<StaffScreen> {
                         );
                       },
                     ),
+              ),
             ),
 
             // If Admin: also has bottom "+ Add New Staff" button

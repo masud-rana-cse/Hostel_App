@@ -326,9 +326,13 @@ class _StudentScreenState extends State<StudentScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: isAdminMode
-            ? _buildAdminStudentList(appProvider, themeColor)
-            : _buildStudentSingleProfile(appProvider, themeColor),
+        child: RefreshIndicator(
+          color: themeColor,
+          onRefresh: () => appProvider.fetchAllDataFromSupabase(),
+          child: isAdminMode
+              ? _buildAdminStudentList(appProvider, themeColor)
+              : _buildStudentSingleProfile(appProvider, themeColor),
+        ),
       ),
     );
   }
@@ -338,15 +342,15 @@ class _StudentScreenState extends State<StudentScreen> {
   // ==========================================
   Widget _buildStudentSingleProfile(AppProvider provider, Color themeColor) {
     final user = provider.currentUser;
-    final name = user?.name ?? 'Md. Masud Rana';
-    final studentId = user?.studentId ?? '241071031';
-    final dept = user?.department ?? 'CSE (Computer Science)';
-    final room = user?.room ?? '204B';
-    final phone = user?.phone ?? '01712345678';
-    final email = user?.email ?? 'masud@gmail.com';
-    final address = user?.address ?? 'Sector 9, Uttara, Dhaka';
-    final guardian = user?.guardian ?? 'Md. Abdur Rahim (01711000000)';
-    final joined = user?.joinedDate ?? 'Jan 15, 2024';
+    final name = user?.name ?? 'Resident';
+    final studentId = user?.studentId ?? 'STD-000';
+    final dept = user?.department ?? 'Not assigned';
+    final room = user?.room ?? 'Not assigned';
+    final phone = user?.phone ?? 'Not provided';
+    final email = user?.email ?? 'No email';
+    final address = user?.address ?? 'Not specified';
+    final guardian = user?.guardian ?? 'Not specified';
+    final joined = user?.joinedDate ?? 'Recently';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(18.0),

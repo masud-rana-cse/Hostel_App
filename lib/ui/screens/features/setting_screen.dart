@@ -461,13 +461,13 @@ class _SettingScreenState extends State<SettingScreen> {
     final themeColor = appProvider.themeColor;
     final isAdminMode = widget.isAdmin;
 
-    final name = user?.name ?? (isAdminMode ? 'Hostel Administrator' : 'Md. Masud Rana');
+    final name = user?.name ?? (isAdminMode ? 'Administrator' : 'Resident');
     final roleLabel = isAdminMode ? 'Administrator · Office Head' : 'Resident Student';
-    final idVal = user?.studentId ?? (isAdminMode ? 'ADM-001' : '241071031');
-    final emailVal = user?.email ?? (isAdminMode ? 'admin@gmail.com' : 'masud@gmail.com');
-    final phoneVal = user?.phone ?? '01712345678';
-    final roomVal = user?.room ?? (isAdminMode ? 'Office 101' : '204B');
-    final deptVal = user?.department ?? (isAdminMode ? 'Management' : 'CSE');
+    final idVal = user?.studentId ?? (isAdminMode ? 'ADM-001' : 'STD-000');
+    final emailVal = user?.email ?? 'No email';
+    final phoneVal = user?.phone ?? 'Not provided';
+    final roomVal = user?.room ?? (isAdminMode ? 'Office' : 'Not assigned');
+    final deptVal = user?.department ?? 'Not assigned';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -486,11 +486,15 @@ class _SettingScreenState extends State<SettingScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: RefreshIndicator(
+          color: themeColor,
+          onRefresh: () => appProvider.fetchAllDataFromSupabase(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // 1. PROFILE DETAILS CARD
               Container(
                 padding: const EdgeInsets.all(16),
@@ -626,8 +630,9 @@ class _SettingScreenState extends State<SettingScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildProfileDetailRow(IconData icon, String label, String value, Color themeColor) {
     return Padding(
