@@ -55,7 +55,8 @@ class DatabaseService {
 
   Future<bool> insertStudent(StudentItem student) async {
     try {
-      await _supabase.from('students').insert(student.toMap());
+      await _supabase.from('students').upsert(student.toMap());
+      debugPrint('Successfully saved student ${student.name} to Supabase students table!');
       return true;
     } catch (e) {
       debugPrint('Error inserting student in Supabase: $e');
@@ -67,8 +68,8 @@ class DatabaseService {
     try {
       await _supabase
           .from('students')
-          .update(student.toMap())
-          .eq('id', student.id);
+          .upsert(student.toMap());
+      debugPrint('Successfully updated student ${student.name} in Supabase students table!');
       return true;
     } catch (e) {
       debugPrint('Error updating student in Supabase: $e');
@@ -79,6 +80,7 @@ class DatabaseService {
   Future<bool> deleteStudent(String id) async {
     try {
       await _supabase.from('students').delete().eq('id', id);
+      debugPrint('Successfully deleted student $id from Supabase students table!');
       return true;
     } catch (e) {
       debugPrint('Error deleting student from Supabase: $e');
@@ -105,7 +107,7 @@ class DatabaseService {
 
   Future<bool> insertStaff(StaffMember member) async {
     try {
-      await _supabase.from('staff').insert(member.toMap());
+      await _supabase.from('staff').upsert(member.toMap());
       return true;
     } catch (e) {
       debugPrint('Error inserting staff member in Supabase: $e');
@@ -115,10 +117,7 @@ class DatabaseService {
 
   Future<bool> updateStaff(StaffMember member) async {
     try {
-      await _supabase
-          .from('staff')
-          .update(member.toMap())
-          .eq('id', member.id);
+      await _supabase.from('staff').upsert(member.toMap());
       return true;
     } catch (e) {
       debugPrint('Error updating staff member in Supabase: $e');
@@ -155,7 +154,7 @@ class DatabaseService {
 
   Future<bool> insertComplaint(ComplaintItem complaint) async {
     try {
-      await _supabase.from('complaints').insert(complaint.toMap());
+      await _supabase.from('complaints').upsert(complaint.toMap());
       return true;
     } catch (e) {
       debugPrint('Error inserting complaint in Supabase: $e');
@@ -205,7 +204,7 @@ class DatabaseService {
 
   Future<bool> insertPayment(PaymentItem payment) async {
     try {
-      await _supabase.from('payments').insert(payment.toMap());
+      await _supabase.from('payments').upsert(payment.toMap());
       return true;
     } catch (e) {
       debugPrint('Error inserting payment in Supabase: $e');

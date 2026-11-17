@@ -97,6 +97,23 @@ class AuthService {
         debugPrint('Notice saving to profiles table: $e');
       }
 
+      // Upsert student in 'students' roster table
+      if (role.toLowerCase() == 'student') {
+        try {
+          await _supabase.from('students').upsert({
+            'id': user.id,
+            'name': name.trim(),
+            'student_id': studentId.trim(),
+            'room': room,
+            'phone': phone.trim(),
+            'department': department,
+            'joined_date': 'Apr 2025',
+          });
+        } catch (e) {
+          debugPrint('Notice saving to students roster table: $e');
+        }
+      }
+
       if (res.session != null) {
         return (true, 'Account created successfully!');
       } else {

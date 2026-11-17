@@ -86,6 +86,45 @@ class AppProvider extends ChangeNotifier {
     ),
   ];
 
+  static final List<StudentItem> _defaultStudents = [
+    StudentItem(
+      id: '1',
+      name: 'Md. Masud Rana',
+      studentId: '241071031',
+      room: '204B',
+      phone: '01712345678',
+      department: 'CSE (Computer Science)',
+      joinedDate: 'Jan 15, 2024',
+    ),
+    StudentItem(
+      id: '2',
+      name: 'Jonaki Akter',
+      studentId: '241071032',
+      room: '301A',
+      phone: '01812345672',
+      department: 'BBA (Management)',
+      joinedDate: 'Feb 10, 2024',
+    ),
+    StudentItem(
+      id: '3',
+      name: 'Rakib Hasan',
+      studentId: '241071035',
+      room: '105C',
+      phone: '01912345673',
+      department: 'EEE (Electrical)',
+      joinedDate: 'Mar 01, 2024',
+    ),
+    StudentItem(
+      id: '4',
+      name: 'Sadia Islam',
+      studentId: '241071037',
+      room: '202A',
+      phone: '01612345674',
+      department: 'Pharmacy',
+      joinedDate: 'Mar 15, 2024',
+    ),
+  ];
+
   // Real Database Collections
   final List<AppUser> _users = [];
   final List<StudentItem> _students = [];
@@ -129,7 +168,6 @@ class AppProvider extends ChangeNotifier {
         if (event == AuthChangeEvent.signedIn && session != null) {
           _loadUserAndFetchData(session.user);
         } else if (event == AuthChangeEvent.signedOut) {
-          // Do not clear local session if logged in as a demo user
           if (_currentUser != null && !_isDemoUser(_currentUser!.email)) {
             _currentUser = null;
             _clearLocalData();
@@ -165,7 +203,7 @@ class AppProvider extends ChangeNotifier {
   bool get isLoadingData => _isLoadingData;
 
   List<AppUser> get allUsers => List.unmodifiable(_users.isNotEmpty ? _users : _demoUsers);
-  List<StudentItem> get students => List.unmodifiable(_students);
+  List<StudentItem> get students => List.unmodifiable(_students.isNotEmpty ? _students : _defaultStudents);
   List<StaffMember> get staff => List.unmodifiable(_staff);
   List<ComplaintItem> get complaints => List.unmodifiable(_complaints);
   List<PaymentItem> get payments => List.unmodifiable(_payments);
@@ -226,36 +264,51 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> fetchProfiles() async {
     final list = await _dbService.fetchAllProfiles();
-    _users.clear();
-    _users.addAll(list);
+    if (list.isNotEmpty) {
+      _users.clear();
+      _users.addAll(list);
+    }
     notifyListeners();
   }
 
   Future<void> fetchStudents() async {
     final list = await _dbService.fetchStudents();
-    _students.clear();
-    _students.addAll(list);
+    if (list.isNotEmpty) {
+      _students.clear();
+      _students.addAll(list);
+    } else if (_students.isEmpty) {
+      _students.addAll(_defaultStudents);
+      for (final s in _defaultStudents) {
+        _dbService.insertStudent(s);
+      }
+    }
     notifyListeners();
   }
 
   Future<void> fetchStaff() async {
     final list = await _dbService.fetchStaff();
-    _staff.clear();
-    _staff.addAll(list);
+    if (list.isNotEmpty) {
+      _staff.clear();
+      _staff.addAll(list);
+    }
     notifyListeners();
   }
 
   Future<void> fetchComplaints() async {
     final list = await _dbService.fetchComplaints();
-    _complaints.clear();
-    _complaints.addAll(list);
+    if (list.isNotEmpty) {
+      _complaints.clear();
+      _complaints.addAll(list);
+    }
     notifyListeners();
   }
 
   Future<void> fetchPayments() async {
     final list = await _dbService.fetchPayments();
-    _payments.clear();
-    _payments.addAll(list);
+    if (list.isNotEmpty) {
+      _payments.clear();
+      _payments.addAll(list);
+    }
     notifyListeners();
   }
 
@@ -429,7 +482,10 @@ class AppProvider extends ChangeNotifier {
   Future<void> addStudent(StudentItem student) async {
     _students.insert(0, student);
     notifyListeners();
-    await _dbService.insertStudent(student);
+    final ok = await _dbService.insertStudent(student);
+    if (ok) {
+      await fetchStudents();
+    }
   }
 
   Future<void> updateStudent(StudentItem updatedStudent) async {
@@ -438,13 +494,19 @@ class AppProvider extends ChangeNotifier {
       _students[index] = updatedStudent;
       notifyListeners();
     }
-    await _dbService.updateStudent(updatedStudent);
+    final ok = await _dbService.updateStudent(updatedStudent);
+    if (ok) {
+      await fetchStudents();
+    }
   }
 
   Future<void> deleteStudent(String id) async {
     _students.removeWhere((s) => s.id == id);
     notifyListeners();
-    await _dbService.deleteStudent(id);
+    final ok = await _dbService.deleteStudent(id);
+    if (ok) {
+      await fetchStudents();
+    }
   }
 
   // -------------------------------------------------------------
@@ -454,6 +516,7 @@ class AppProvider extends ChangeNotifier {
     _staff.insert(0, member);
     notifyListeners();
     await _dbService.insertStaff(member);
+    await fetchStaff();
   }
 
   Future<void> updateStaff(StaffMember updatedMember) async {
@@ -463,12 +526,14 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
     }
     await _dbService.updateStaff(updatedMember);
+    await fetchStaff();
   }
 
   Future<void> deleteStaff(String id) async {
     _staff.removeWhere((s) => s.id == id);
     notifyListeners();
     await _dbService.deleteStaff(id);
+    await fetchStaff();
   }
 
   // -------------------------------------------------------------
@@ -496,6 +561,7 @@ class AppProvider extends ChangeNotifier {
     _complaints.insert(0, newComplaint);
     notifyListeners();
     await _dbService.insertComplaint(newComplaint);
+    await fetchComplaints();
   }
 
   Future<void> toggleComplaintStatus(String id) async {
@@ -506,6 +572,7 @@ class AppProvider extends ChangeNotifier {
       current.status = newStatus;
       notifyListeners();
       await _dbService.updateComplaintStatus(id, newStatus);
+      await fetchComplaints();
     }
   }
 
@@ -513,6 +580,7 @@ class AppProvider extends ChangeNotifier {
     _complaints.removeWhere((c) => c.id == id);
     notifyListeners();
     await _dbService.deleteComplaint(id);
+    await fetchComplaints();
   }
 
   // -------------------------------------------------------------
@@ -522,6 +590,7 @@ class AppProvider extends ChangeNotifier {
     _payments.insert(0, payment);
     notifyListeners();
     await _dbService.insertPayment(payment);
+    await fetchPayments();
   }
 
   Future<void> togglePaymentStatus(String id) async {
@@ -531,6 +600,7 @@ class AppProvider extends ChangeNotifier {
       _payments[index].isPaid = newStatus;
       notifyListeners();
       await _dbService.updatePaymentStatus(id, newStatus);
+      await fetchPayments();
     }
   }
 
@@ -538,5 +608,6 @@ class AppProvider extends ChangeNotifier {
     _payments.removeWhere((p) => p.id == id);
     notifyListeners();
     await _dbService.deletePayment(id);
+    await fetchPayments();
   }
 }
