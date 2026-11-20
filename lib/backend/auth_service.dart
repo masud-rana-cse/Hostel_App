@@ -163,7 +163,7 @@ class AuthService {
     }
   }
 
-  /// Google OAuth & Native Sign In using Google Client ID from .env
+  /// Google OAuth & Native Sign In using Android & Web Client IDs from .env
   Future<(bool, String)> signInWithGoogle() async {
     try {
       if (kIsWeb) {
@@ -174,11 +174,16 @@ class AuthService {
         return (true, 'Success');
       }
 
-      final webClientId = dotenv.env['GOOGLE_CLIENT_ID'] ??
+      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ??
+          dotenv.env['GOOGLE_CLIENT_ID'] ??
           '91377156454-flemhjth60f5a00er8rtqaiqrjgrlln8.apps.googleusercontent.com';
+
+      final androidClientId = dotenv.env['GOOGLE_ANDROID_CLIENT_ID'] ??
+          '91377156454-ourk4oie19rdv8iumf608uhb9juktslt.apps.googleusercontent.com';
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: webClientId,
+        clientId: kIsWeb ? webClientId : androidClientId,
       );
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
