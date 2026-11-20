@@ -163,16 +163,9 @@ class AuthService {
     }
   }
 
-  /// Google OAuth & Native Sign In using Android & Web Client IDs from .env
+  /// Google OAuth & Native Sign In using Google Client ID from .env
   Future<(bool, String)> signInWithGoogle() async {
     try {
-      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ??
-          dotenv.env['GOOGLE_CLIENT_ID'] ??
-          '91377156454-flemhjth60f5a00er8rtqaiqrjgrlln8.apps.googleusercontent.com';
-
-      final androidClientId = dotenv.env['GOOGLE_ANDROID_CLIENT_ID'] ??
-          '91377156454-ourk4oie19rdv8iumf608uhb9juktslt.apps.googleusercontent.com';
-
       if (kIsWeb) {
         try {
           await _supabase.auth.signInWithOAuth(
@@ -191,9 +184,12 @@ class AuthService {
         }
       }
 
+      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ??
+          dotenv.env['GOOGLE_CLIENT_ID'] ??
+          '91377156454-flemhjth60f5a00er8rtqaiqrjgrlln8.apps.googleusercontent.com';
+
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: webClientId,
-        clientId: androidClientId,
       );
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
@@ -209,7 +205,7 @@ class AuthService {
       if (idToken == null || idToken.isEmpty) {
         return (
           false,
-          'Could not retrieve Google ID Token. Please verify SHA-1 fingerprint in Google Cloud Console.'
+          'Google ID Token is null. Please verify SHA-1 fingerprint in Google Cloud Console.'
         );
       }
 
@@ -228,7 +224,7 @@ class AuthService {
       if (e.message.contains('missing OAuth secret') || e.statusCode == '400') {
         return (
           false,
-          'Supabase Notice: Please paste your Google Client Secret into Supabase Auth Settings (Auth -> Providers -> Google).'
+          'Supabase Google Provider Notice: Please paste your Google Client Secret into Supabase Auth Settings.'
         );
       }
       return (false, e.message);
@@ -237,7 +233,7 @@ class AuthService {
       if (str.contains('missing OAuth secret') || str.contains('400')) {
         return (
           false,
-          'Supabase Notice: Please paste your Google Client Secret into Supabase Auth Settings (Auth -> Providers -> Google).'
+          'Supabase Google Provider Notice: Please paste your Google Client Secret into Supabase Auth Settings.'
         );
       }
       return (false, str);
