@@ -175,7 +175,7 @@ class AuthService {
       }
 
       final webClientId = dotenv.env['GOOGLE_CLIENT_ID'] ??
-          '91377156454-ourk4oie19rdv8iumf608uhb9juktslt.apps.googleusercontent.com';
+          '91377156454-flemhjth60f5a00er8rtqaiqrjgrlln8.apps.googleusercontent.com';
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: webClientId,
