@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
@@ -162,7 +163,7 @@ class AuthService {
     }
   }
 
-  /// Google OAuth & Native Sign In
+  /// Google OAuth & Native Sign In using Google Client ID from .env
   Future<(bool, String)> signInWithGoogle() async {
     try {
       if (kIsWeb) {
@@ -173,7 +174,13 @@ class AuthService {
         return (true, 'Success');
       }
 
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final webClientId = dotenv.env['GOOGLE_CLIENT_ID'] ??
+          '91377156454-ourk4oie19rdv8iumf608uhb9juktslt.apps.googleusercontent.com';
+
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: webClientId,
+      );
+
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
@@ -181,37 +188,27 @@ class AuthService {
       }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
       final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
 
-      if (idToken == null) {
-        return (false, 'No ID Token returned from Google Sign-In.');
+      if (idToken != null) {
+        final res = await _supabase.auth.signInWithIdToken(
+          provider: OAuthProvider.google,
+          idToken: idToken,
+          accessToken: accessToken,
+        );
+        if (res.user != null) return (true, 'Success');
       }
 
-      final res = await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
+      await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'io.supabase.hostelapp://login-callback',
       );
-
-      if (res.user != null) {
-        return (true, 'Success');
-      } else {
-        return (false, 'Failed to authenticate with Supabase using Google credentials.');
-      }
+      return (true, 'Success');
     } on AuthException catch (e) {
       return (false, e.message);
     } catch (e) {
-      // OAuth Fallback
-      try {
-        await _supabase.auth.signInWithOAuth(
-          OAuthProvider.google,
-          redirectTo: 'io.supabase.hostelapp://login-callback',
-        );
-        return (true, 'Success');
-      } catch (_) {
-        return (false, e.toString());
-      }
+      return (false, e.toString());
     }
   }
 
