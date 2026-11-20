@@ -174,16 +174,26 @@ class AuthService {
           '91377156454-ourk4oie19rdv8iumf608uhb9juktslt.apps.googleusercontent.com';
 
       if (kIsWeb) {
-        await _supabase.auth.signInWithOAuth(
-          OAuthProvider.google,
-          redirectTo: 'io.supabase.hostelapp://login-callback',
-        );
-        return (true, 'Success');
+        try {
+          await _supabase.auth.signInWithOAuth(
+            OAuthProvider.google,
+            redirectTo: 'io.supabase.hostelapp://login-callback',
+          );
+          return (true, 'Success');
+        } on AuthException catch (e) {
+          if (e.message.contains('missing OAuth secret') || e.statusCode == '400') {
+            return (
+              false,
+              'Supabase Notice: Please paste your Google Client Secret into Supabase Auth Settings (Auth -> Providers -> Google).'
+            );
+          }
+          return (false, e.message);
+        }
       }
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: webClientId,
-        clientId: kIsWeb ? webClientId : androidClientId,
+        clientId: androidClientId,
       );
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
@@ -196,31 +206,41 @@ class AuthService {
       final idToken = googleAuth.idToken;
       final accessToken = googleAuth.accessToken;
 
-      if (idToken != null) {
-        final res = await _supabase.auth.signInWithIdToken(
-          provider: OAuthProvider.google,
-          idToken: idToken,
-          accessToken: accessToken,
+      if (idToken == null || idToken.isEmpty) {
+        return (
+          false,
+          'Could not retrieve Google ID Token. Please verify SHA-1 fingerprint in Google Cloud Console.'
         );
-        if (res.user != null) return (true, 'Success');
       }
 
-      // Try OAuth Redirect fallback
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'io.supabase.hostelapp://login-callback',
+      final res = await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
       );
-      return (true, 'Success');
+
+      if (res.user != null) {
+        return (true, 'Success');
+      } else {
+        return (false, 'Failed to authenticate with Supabase using Google ID Token.');
+      }
     } on AuthException catch (e) {
       if (e.message.contains('missing OAuth secret') || e.statusCode == '400') {
         return (
           false,
-          'Supabase Google Provider Notice: Please paste your Google Client Secret into Supabase Auth Settings.'
+          'Supabase Notice: Please paste your Google Client Secret into Supabase Auth Settings (Auth -> Providers -> Google).'
         );
       }
       return (false, e.message);
     } catch (e) {
-      return (false, e.toString());
+      final str = e.toString();
+      if (str.contains('missing OAuth secret') || str.contains('400')) {
+        return (
+          false,
+          'Supabase Notice: Please paste your Google Client Secret into Supabase Auth Settings (Auth -> Providers -> Google).'
+        );
+      }
+      return (false, str);
     }
   }
 
