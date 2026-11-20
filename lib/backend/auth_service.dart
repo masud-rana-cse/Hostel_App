@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 
@@ -161,18 +162,56 @@ class AuthService {
     }
   }
 
-  /// Google OAuth Sign In
+  /// Google OAuth & Native Sign In
   Future<(bool, String)> signInWithGoogle() async {
     try {
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'io.supabase.hostelapp://login-callback',
+      if (kIsWeb) {
+        await _supabase.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: 'io.supabase.hostelapp://login-callback',
+        );
+        return (true, 'Success');
+      }
+
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        return (false, 'Google Sign-In canceled by user.');
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final accessToken = googleAuth.accessToken;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        return (false, 'No ID Token returned from Google Sign-In.');
+      }
+
+      final res = await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
       );
-      return (true, 'Success');
+
+      if (res.user != null) {
+        return (true, 'Success');
+      } else {
+        return (false, 'Failed to authenticate with Supabase using Google credentials.');
+      }
     } on AuthException catch (e) {
       return (false, e.message);
     } catch (e) {
-      return (false, e.toString());
+      // OAuth Fallback
+      try {
+        await _supabase.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: 'io.supabase.hostelapp://login-callback',
+        );
+        return (true, 'Success');
+      } catch (_) {
+        return (false, e.toString());
+      }
     }
   }
 
@@ -294,6 +333,10 @@ class AuthService {
 
   /// Sign Out
   Future<void> signOut() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      await googleSignIn.signOut();
+    } catch (_) {}
     try {
       await _supabase.auth.signOut();
     } catch (e) {
